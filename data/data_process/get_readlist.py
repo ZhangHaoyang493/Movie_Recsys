@@ -1,18 +1,25 @@
 import os
-import pandas as pd
+import pickle
+import os.path as osp
 
-def gen_readlist(x):
-    x = x.sort_values(by='Timestamp')
-    return list(zip(x['MovieID'], x['Rating'], x['Timestamp']))
-    
+basedir = '/Users/zhanghaoyang04/Desktop/Movie_Recsys/'
 
+readlist = {}
 
-basedir = '/Users/zhanghaoyang/Desktop/Movie_Recsys/'
+with open(osp.join(basedir, 'data', 'ratings.dat'), 'r') as f:
+    for line in f:
+        line = line.strip()
+        data = line.split('::')
+        # UserID::MovieID::Rating::Timestamp
+        userid = data[0]
+        if userid not in readlist:
+            readlist[userid] = []
+        readlist[userid].append((data[1], float(data[2]), int(data[3])))
 
-rating_columns = ['UserID', 'MovieID', 'Rating', 'Timestamp']
-rating_data = pd.read_csv(os.path.join(basedir, 'data', 'ratings.dat'),
-                          names=rating_columns,
-                          delimiter='::')
+for userid in readlist.keys():
+    k_list = readlist[userid]
+    # 按照timestamp从小到大排序
+    k_list = sorted(k_list, key=lambda x: x[-1])
+    readlist[userid] = k_list
 
-readlist = rating_data.groupby('UserID').apply(gen_readlist).to_dict()
-print(readlist[1])
+pickle.dump(readlist, open(os.path.join(basedir, 'cache', 'readlist.pkl'), 'wb'))
