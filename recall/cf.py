@@ -66,7 +66,7 @@ class ItemCF:
                 item_sim_list = []
                 for k, v in item_item_sim_matrix[item].items():
                     item_sim_list.append((k, v))
-                item_item_sim_sorted_matrix[item] = sorted(item_sim_list, key=lambda x: x[1])
+                item_item_sim_sorted_matrix[item] = sorted(item_sim_list, key=lambda x: x[1], reverse=True)
             pickle.dump(item_item_sim_sorted_matrix, open(os.path.join(conf['basedir'], 'cache', 'ii_sim_sorted_matrix.pkl'), 'wb'))
         else:
             item_item_sim_sorted_matrix = pickle.load(open(os.path.join(conf['basedir'], 'cache', 'ii_sim_sorted_matrix.pkl'), 'rb'))
@@ -97,14 +97,13 @@ class ItemCF:
         for userid in val_data.keys():
             recall_for_user = self.item_cf_recall(userid, topk)
             recall_res[userid] = [x[0] for x in recall_for_user]
-            print(recall_res[userid], val_data[userid][0])
             if val_data[userid][0] in recall_res[userid]:
                 recall_num += 1
-        print(recall_num / len(val_data.keys()))
+        print('Recall Precision: %.2f%s' % (recall_num / len(val_data.keys()) * 100, '%'))
 
 
 
 
 if __name__ == '__main__':
     itemcf = ItemCF('./cf_conf.yaml')
-    itemcf.val_recall(10)
+    itemcf.val_recall(50)
