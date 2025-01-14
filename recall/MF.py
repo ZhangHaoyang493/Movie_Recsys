@@ -40,7 +40,7 @@ class MFModel(L.LightningModule):
         user_id, item_id, label = batch[:, 0], batch[:, 1], batch[:, 2]
         user_emb, item_emb = self(user_id, item_id)
 
-        loss = nn.MSELoss()(torch.mul(user_emb, item_emb).sum(dim=1), label)
+        loss = nn.MSELoss()(torch.mul(user_emb, item_emb).sum(dim=1), label * 1.0)
 
         return loss
     
@@ -58,19 +58,19 @@ class MFModel(L.LightningModule):
 
 if __name__ == '__main__':
     dataset = MFDataset(
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl'
+        '/data/zhy/recommendation_system/Movie_Recsys/cache/train_readlist.pkl'
     )
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=512, shuffle=True)
 
-    item_num = 3883
-    user_num = 6040
+    item_num = 3952 + 1
+    user_num = 6040 + 1
 
     model = MFModel(user_num, item_num)
 
-    trainer = L.Trainer(max_epochs=5)
+    trainer = L.Trainer(max_epochs=5, accelerator='cpu')#, accelerator='gpu', devices='1')
     trainer.fit(model, dataloader)
 
-    model.save_user_embedding_weights('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache')
+    model.save_user_embedding_weights('/data/zhy/recommendation_system/Movie_Recsys/cache')
 
 
 
