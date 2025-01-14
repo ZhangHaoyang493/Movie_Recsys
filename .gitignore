@@ -1,1 +1,3 @@
 /cache/*.pkl
+.vscode
+lightning_logs
