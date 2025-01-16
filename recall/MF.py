@@ -5,9 +5,9 @@ import torch
 from torch import optim, nn, utils, Tensor
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
-import lightning as L
 from torch.utils.data import Dataset, DataLoader
 import pickle
+from tqdm import tqdm
 
 class MFDataset(Dataset):
     def __init__(self, readlist_path: str):
@@ -25,7 +25,7 @@ class MFDataset(Dataset):
     def __getitem__(self, index):
         return self.data[index]
     
-class MFModel(L.LightningModule):
+class MFModel(nn.Module):
     def __init__(self, user_num, item_num, dim: int=32):
         super().__init__()
 
@@ -33,20 +33,20 @@ class MFModel(L.LightningModule):
         self.item_embedding = nn.Embedding(item_num, dim)
 
     # 输入： bx3
-    def forward(self, user_id, item_id):
+    def get_embedding(self, user_id, item_id):
         return self.user_embedding(user_id), self.item_embedding(item_id)
     
-    def training_step(self, batch, batch_idx):
+    def forward(self, batch):
         user_id, item_id, label = batch[:, 0], batch[:, 1], batch[:, 2]
-        user_emb, item_emb = self(user_id, item_id)
+        user_emb, item_emb = self.get_embedding(user_id, item_id)
 
         loss = nn.MSELoss()(torch.mul(user_emb, item_emb).sum(dim=1), label * 1.0)
 
         return loss
     
-    def configure_optimizers(self):
-        optimizer = optim.SGD(self.parameters(), lr=0.001, weight_decay=1e-4)
-        return optimizer
+    # def configure_optimizers(self):
+    #     optimizer = optim.SGD(self.parameters(), lr=0.001, weight_decay=1e-4)
+    #     return optimizer
     
     def save_user_embedding_weights(self, save_path):
         weights_user = self.user_embedding.weight.detach().cpu().numpy()
@@ -58,19 +58,31 @@ class MFModel(L.LightningModule):
 
 if __name__ == '__main__':
     dataset = MFDataset(
-        '/data/zhy/recommendation_system/Movie_Recsys/cache/train_readlist.pkl'
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl'
     )
-    dataloader = DataLoader(dataset, batch_size=512, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=48, shuffle=True)
 
     item_num = 3952 + 1
     user_num = 6040 + 1
 
+    epoch_num = 5
     model = MFModel(user_num, item_num)
 
-    trainer = L.Trainer(max_epochs=5, accelerator='cpu')#, accelerator='gpu', devices='1')
-    trainer.fit(model, dataloader)
+    optimizer = optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
 
-    model.save_user_embedding_weights('/data/zhy/recommendation_system/Movie_Recsys/cache')
+    for epoch in range(epoch_num):
+        model.train()
+        loss_epoch = 0.0
+        for data in tqdm(dataloader, ncols=100):
+            optimizer.zero_grad()
+            loss = model(data)
+            loss.backward()
+            optimizer.step()
+            loss_epoch += loss
+        print('Epoch: %d, Loss: %.3f' % (epoch, loss_epoch / len(dataloader)))
+
+
+    # model.save_user_embedding_weights('/data/zhy/recommendation_system/Movie_Recsys/cache')
 
 
 
