@@ -106,4 +106,4 @@ class ItemCF:
 
 if __name__ == '__main__':
     itemcf = ItemCF('./cf_conf.yaml')
-    itemcf.val_recall(100)
+    itemcf.val_recall(50)

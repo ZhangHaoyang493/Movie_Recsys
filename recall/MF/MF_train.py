@@ -1,4 +1,6 @@
 # 矩阵分解算法
+import sys
+sys.path.append('..')
 
 import os
 import torch
@@ -8,6 +10,9 @@ from torchvision.transforms import ToTensor
 from torch.utils.data import Dataset, DataLoader
 import pickle
 from tqdm import tqdm
+import numpy as np
+import faiss
+from baseRecall import BaseRecall
 
 class MFDataset(Dataset):
     def __init__(self, readlist_path: str):
@@ -48,7 +53,7 @@ class MFModel(nn.Module):
     #     optimizer = optim.SGD(self.parameters(), lr=0.001, weight_decay=1e-4)
     #     return optimizer
     
-    def save_user_embedding_weights(self, save_path):
+    def save_user_item_embedding_weights(self, save_path):
         weights_user = self.user_embedding.weight.detach().cpu().numpy()
         weights_dict_user = {i: weights_user[i].tolist() for i in range(weights_user.shape[0])}
         weights_item = self.item_embedding.weight.detach().cpu().numpy()
@@ -56,19 +61,24 @@ class MFModel(nn.Module):
         pickle.dump(weights_dict_user, open(os.path.join(save_path, 'MF_user_emb.pkl'), 'wb'))
         pickle.dump(weights_dict_item, open(os.path.join(save_path, 'MF_item_emb.pkl'), 'wb'))
 
-if __name__ == '__main__':
-    dataset = MFDataset(
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl'
-    )
-    dataloader = DataLoader(dataset, batch_size=48, shuffle=True)
 
+
+
+    
+    
+
+if __name__ == '__main__':
     item_num = 3952 + 1
     user_num = 6040 + 1
-
-    epoch_num = 5
+    epoch_num = 10
     model = MFModel(user_num, item_num)
-
     optimizer = optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
+    workdir = '/Users/zhanghaoyang04/Desktop/Movie_Recsys/recall/MF/MF_emb'
+
+    dataset = MFDataset(
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/train_readlist.pkl'
+    )
+    dataloader = DataLoader(dataset, batch_size=48, shuffle=True)
 
     for epoch in range(epoch_num):
         model.train()
@@ -81,7 +91,7 @@ if __name__ == '__main__':
             loss_epoch += loss
         print('Epoch: %d, Loss: %.3f' % (epoch, loss_epoch / len(dataloader)))
 
-
+    model.save_user_item_embedding_weights(workdir)
     # model.save_user_embedding_weights('/data/zhy/recommendation_system/Movie_Recsys/cache')
 
 
