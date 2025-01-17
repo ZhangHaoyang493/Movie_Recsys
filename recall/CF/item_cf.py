@@ -3,10 +3,11 @@ import pickle
 import yaml
 from tqdm import tqdm
 from typing import List
+from baseRecall import BaseRecall
 
 # itemCF，从train_readlist中构建出物品和用户的共现矩阵，然后计算物品之间的相似度
 
-class ItemCF:
+class ItemCF(BaseRecall):
     def __init__(self, conf=''):
         conf = yaml.safe_load(open(conf, 'r'))
         self.conf = conf
@@ -90,16 +91,16 @@ class ItemCF:
         recall_list = sorted(recall_list, key=lambda x: x[1], reverse=True)
         return recall_list[:topk]
     
-    def eval(self, topk: int=5):
-        val_data = pickle.load(open(os.path.join(self.conf['basedir'], 'cache', 'val_data.pkl'), 'rb'))
-        recall_res = {}
-        recall_num = 0
-        for userid in val_data.keys():
-            recall_for_user = self.item_cf_recall(userid, topk)
-            recall_res[userid] = [x[0] for x in recall_for_user]
-            if val_data[userid][0] in recall_res[userid]:
-                recall_num += 1
-        print('Recall Precision: %.2f%s' % (recall_num / len(val_data.keys()) * 100, '%'))
+    # def eval(self, topk: int=5):
+    #     val_data = pickle.load(open(os.path.join(self.conf['basedir'], 'cache', 'val_data.pkl'), 'rb'))
+    #     recall_res = {}
+    #     recall_num = 0
+    #     for userid in val_data.keys():
+    #         recall_for_user = self.item_cf_recall(userid, topk)
+    #         recall_res[userid] = [x[0] for x in recall_for_user]
+    #         if val_data[userid][0] in recall_res[userid]:
+    #             recall_num += 1
+    #     print('Recall Precision: %.2f%s' % (recall_num / len(val_data.keys()) * 100, '%'))
 
 
 
