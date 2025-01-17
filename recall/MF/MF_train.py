@@ -70,28 +70,33 @@ class MFModel(nn.Module):
 if __name__ == '__main__':
     item_num = 3952 + 1
     user_num = 6040 + 1
-    epoch_num = 10
-    model = MFModel(user_num, item_num)
+    epoch_num = 20
+    model = MFModel(user_num, item_num, dim=16)
     optimizer = optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
-    workdir = '/Users/zhanghaoyang04/Desktop/Movie_Recsys/recall/MF/MF_emb'
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=15607 * 20, eta_min=1e-3)
+    workdir = '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/MF/MF_emb'
 
     dataset = MFDataset(
-        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/train_readlist.pkl'
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl'
     )
-    dataloader = DataLoader(dataset, batch_size=48, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=128, shuffle=True)
 
     for epoch in range(epoch_num):
         model.train()
         loss_epoch = 0.0
-        for data in tqdm(dataloader, ncols=100):
+        tqdm_bar = tqdm(dataloader, ncols=100)
+        for data in tqdm_bar:
             optimizer.zero_grad()
             loss = model(data)
             loss.backward()
             optimizer.step()
             loss_epoch += loss
+            scheduler.step()
+            tqdm_bar.set_postfix_str('lr: %.6f' % optimizer.state_dict()['param_groups'][0]['lr'])
         print('Epoch: %d, Loss: %.3f' % (epoch, loss_epoch / len(dataloader)))
 
     model.save_user_item_embedding_weights(workdir)
+    
     # model.save_user_embedding_weights('/data/zhy/recommendation_system/Movie_Recsys/cache')
 
 

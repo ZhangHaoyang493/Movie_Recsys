@@ -1,11 +1,11 @@
 import pickle
 
-class BaseRecall:
+class BaseRecall():
     def __init__(self):
         pass
 
     def eval(self, val_data_path, k=5):
-        val_data = pickle.load(open(val_data_path), 'rb')
+        val_data = pickle.load(open(val_data_path, 'rb'))
         recall_res = {}
         recall_num = 0
         for userid in val_data.keys():

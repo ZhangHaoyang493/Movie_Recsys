@@ -28,16 +28,18 @@ class MFRecall(BaseRecall):
         self.index.add(item_emb_np)  # 将向量添加到Faiss索引中
 
     def recall(self, userid, k=5):
-        user_emb = np.array(self.user_emb[userid]).astype('float32')
+        user_emb = np.array(self.user_emb[int(userid)]).astype('float32')
+        user_emb = np.expand_dims(user_emb, axis=0) 
         distances, indices = self.index.search(user_emb, k + 1)
-        results = [(self.index2itemId[idx], dist) for idx, dist in zip(indices[0][1:], distances[0][1:])]
+        results = [(str(self.index2itemId[idx]), float(dist)) for idx, dist in zip(indices[0][:], distances[0][:])]
+        # print(userid, results)
         return results
     
     
 if __name__ == '__main__':
     mf_recall = MFRecall(
-        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/recall/MF/MF_emb/MF_user_emb.pkl',
-        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/recall/MF/MF_emb/MF_item_emb.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/MF/MF_emb/MF_user_emb.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/MF/MF_emb/MF_item_emb.pkl',
     )
 
-    MFRecall.eval(val_data_path='/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/val_data.pkl', k=10)
+    mf_recall.eval(val_data_path='/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/val_data.pkl', k=50)
