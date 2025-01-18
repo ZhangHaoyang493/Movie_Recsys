@@ -1,0 +1,7 @@
+window_size: 5
+sequence_len: 8
+train_readlist_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl
+item_num: 3952
+user_num: 6040
+
+emb_dim: 16
