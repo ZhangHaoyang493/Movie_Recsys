@@ -30,5 +30,6 @@ model = gensim.models.Word2Vec(
     workers=4
 )
 
+
 wordvec = model.wv['word']
 print(wordvec)
