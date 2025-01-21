@@ -5,3 +5,5 @@ item_num: 3952
 user_num: 6040
 
 emb_dim: 16
+
+save_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/recall/word2vec_emb_recall

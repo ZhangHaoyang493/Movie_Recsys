@@ -2,6 +2,7 @@ import gensim
 import yaml
 import pickle
 from tqdm import tqdm
+import os.path as osp
 
 with open('./w2v_conf.yaml', 'r') as f:
     conf = yaml.safe_load(f)
@@ -30,6 +31,4 @@ model = gensim.models.Word2Vec(
     workers=4
 )
 
-
-wordvec = model.wv['word']
-print(wordvec)
+model.save(osp.join(conf['save_path'], 'word2vec_model.pth'))
