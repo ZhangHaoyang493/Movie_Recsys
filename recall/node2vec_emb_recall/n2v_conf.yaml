@@ -4,5 +4,8 @@ item_num: 3952
 user_num: 6040
 emb_dim: 16
 
+walk_len: 10
+walk_num: 5
+
 train_readlist_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl
 save_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/recall/word2vec_emb_recall
