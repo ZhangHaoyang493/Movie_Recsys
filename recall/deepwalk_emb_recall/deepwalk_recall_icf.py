@@ -12,10 +12,10 @@ from baseRecall import BaseRecall
 
 
 
-class W2VRecall(BaseRecall):
+class DeepWalkRecall(BaseRecall):
     def __init__(self):
         
-        with open('./w2v_conf.yaml', 'r') as f:
+        with open('./deepwalk_conf.yaml', 'r') as f:
             conf = yaml.safe_load(f)
 
         self.train_readlist = pickle.load(open(conf['train_readlist_path'], 'rb'))
@@ -52,6 +52,8 @@ class W2VRecall(BaseRecall):
         self.id_index_dict = id_index_dict
         self.item_emb_np = item_emb_np
 
+        self.user_num = conf['user_num']
+
     def recall(self, user_id, k=5):
 
         # user_emb = np.array(self.user_emb[int(userid)]).astype('float32')
@@ -67,6 +69,7 @@ class W2VRecall(BaseRecall):
         # sim_info = []
         for item_info in self.train_readlist[user_id]:
             item_id = item_info[0]
+            item_id = str(int(item_id) + self.user_num)
             item_emb = np.array(self.item_emb_np[self.id_index_dict[item_id]]).astype('float32')
             item_emb = np.expand_dims(item_emb, axis=0)
             distances, indices = self.index.search(item_emb, k + 1)
@@ -84,34 +87,12 @@ class W2VRecall(BaseRecall):
         #         recall_res[w[0]] += w[1]
         recall_res = list(recall_res.items())
         recall_res = sorted(recall_res, key=lambda x: x[1], reverse=True)[:k]
+        recall_res = [(str(int(id) - self.user_num), sim) for id, sim in recall_res]
         return recall_res
     
-# class W2VRecallOld(BaseRecall):
-#     def __init__(self):
-        
-#         with open('./w2v_conf.yaml', 'r') as f:
-#             conf = yaml.safe_load(f)
 
-#         self.model = gensim.models.word2vec.Word2Vec.load(osp.join(conf['save_path'], 'word2vec_model.pth'))
-#         self.train_readlist = pickle.load(open(conf['train_readlist_path'], 'rb'))
-
-#     def recall(self, user_id, k=5):
-#         recall_res = {}
-#         sim_info = []
-#         for item_info in self.train_readlist[user_id]:
-#             item_id = item_info[0]
-#             similar_words = self.model.wv.most_similar(item_id, topn=k)
-#             sim_info.append(similar_words)
-#         for l in sim_info:
-#             for w in l:
-#                 if w[0] not in recall_res:
-#                     recall_res[w[0]] = 0
-#                 recall_res[w[0]] += w[1]
-#         recall_res = list(recall_res.items())
-#         recall_res = sorted(recall_res, key=lambda x: x[1], reverse=True)[:k]
-#         return recall_res
 
 if __name__ == '__main__':
-    model = W2VRecall()
+    model = DeepWalkRecall()
     model.eval('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/val_data.pkl', k=50)
     # print(model.recall('9999'))

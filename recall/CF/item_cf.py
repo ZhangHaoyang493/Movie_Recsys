@@ -1,3 +1,7 @@
+import sys
+sys.path.append('..')
+
+
 import os
 import pickle
 import yaml
@@ -107,4 +111,4 @@ class ItemCF(BaseRecall):
 
 if __name__ == '__main__':
     itemcf = ItemCF('./cf_conf.yaml')
-    itemcf.eval(100)
+    itemcf.eval('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/val_data.pkl', 50)

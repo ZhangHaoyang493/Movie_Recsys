@@ -6,3 +6,4 @@ emb_dim: 16
 
 train_readlist_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl
 save_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/recall/word2vec_emb_recall
+emb_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/recall/word2vec_emb_recall/word2vec_embeddings.txt

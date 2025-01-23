@@ -1,0 +1,11 @@
+window_size: 5
+sequence_len: 20
+item_num: 3952
+user_num: 6040
+emb_dim: 16
+
+walk_num: 10
+
+train_readlist_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl
+save_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/recall/node2vec_emb_recall
+emb_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/recall/node2vec_emb_recall/node2vec_embeddings.txt
