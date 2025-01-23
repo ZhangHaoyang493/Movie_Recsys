@@ -24,7 +24,7 @@ class MFRecall(BaseRecall):
         item_emb_np = np.array(item_emb_np)
 
         dimension = item_emb_np.shape[1]  # 获取向量的维度
-        self.index = faiss.IndexFlatL2(dimension)  # 使用L2距离度量
+        self.index = faiss.IndexFlatIP(dimension)  # 使用内积度量
         self.index.add(item_emb_np)  # 将向量添加到Faiss索引中
 
     def recall(self, userid, k=5):
