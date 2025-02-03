@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/')
+sys.path.append('/data/zhy/recommendation_system/Movie_Recsys/recall')
 
 import pickle
 from baseRecall import BaseRecall
@@ -52,8 +52,8 @@ class DSSMRecall(BaseRecall):
     
 if __name__ == '__main__':
     dssm_recall = DSSMRecall(
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/DSSM/item_emb.pkl',
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/DSSM/user_emb.pkl',
+        '/data/zhy/recommendation_system/Movie_Recsys/recall/DSSM/item_emb_final.pkl',
+        '/data/zhy/recommendation_system/Movie_Recsys/recall/DSSM/user_emb_final.pkl',
         # '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/DSSM/DSSM.pth',
     )
 
