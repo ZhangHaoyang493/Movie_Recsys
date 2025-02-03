@@ -13,19 +13,27 @@ import faiss
 
 from dataloader import DSSMDataLoader
 
+
 class DSSMModel(nn.Module):
-    def __init__(self, user_num, item_num, dim: int=16):
+    def __init__(self, user_num, item_num, dim: int=16, device: str='cpu', data_type: str='random'):
         super().__init__()
         self.user_id_embedding = nn.Embedding(user_num, dim)
         self.item_id_embedding = nn.Embedding(item_num, dim)
 
-    def InBatchLoss(self, user_emb, item_emb):
+        self.device = torch.device(device)
+        self.data_type = data_type
+
+    def InBatchLoss(self, user_id, item_id):
+        user_emb = self.user_id_embedding(user_id).squeeze(1)
+        item_emb = self.item_id_embedding(item_id).squeeze(1)
+
         dot_product_all = torch.matmul(user_emb, item_emb.T)
 
         b, _ = dot_product_all.shape
 
         # loss = dot_product_all.clone()
-        help_mat = torch.ones_like(dot_product_all) - 2 * torch.eye(b)
+        help_mat = (torch.ones_like(dot_product_all) - 2 * torch.eye(b).to(self.device))
+        # help_mat = help_mat
 
         # for i in range(b):
         #     # i, i位置的是正样本
@@ -37,27 +45,47 @@ class DSSMModel(nn.Module):
         # loss = loss.sum(dim=-1).sum(dim=-1)
         loss = loss.sum()
         return loss / b
+    
+    def RandomNegLoss(self, user_id, item_id, neg_id):
+        # user_id: bx1   item_id: bx1   neg_id: bx10
+        # user_emb: bx1xdim   item_emb: bx1xdim  neg_emb: bx10xdim
+        b, _ = user_id.shape
+        user_emb = self.user_id_embedding(user_id)
+        item_emb = self.item_id_embedding(item_id)
+        neg_emb = self.item_id_embedding(neg_id)
+
+        cat_item_emb = torch.concat([item_emb, neg_emb], dim=1) # bx11xdim
+        
+        dot_product = torch.matmul(user_emb, cat_item_emb.transpose(1, 2)).squeeze(1)  # bx11
+
+        # 第一列是正样本
+        dot_product[:, 0] = dot_product[:, 0] * -1
+        loss = torch.log(1 + torch.exp(dot_product))
+        loss = loss.sum()
+        return loss / b
 
     def forward(self, data):
-        user_id = data['userid']
-        item_id = data['itemid']
-        user_fea = data['user_feature']
-        item_fea = data['item_feature']
-
-        user_emb = self.user_id_embedding(user_id).squeeze(1)
-        item_emb = self.item_id_embedding(item_id).squeeze(1)
-
-        loss = self.InBatchLoss(user_emb, item_emb)
+        user_id = data['userid'].to(self.device)
+        item_id = data['itemid'].to(self.device)
+        user_fea = data['user_feature'].to(self.device)
+        item_fea = data['item_feature'].to(self.device)
+        if self.data_type == 'random':
+            neg_id = data['neg_sample']
+        
+        if self.data_type == 'random':
+            return self.RandomNegLoss(user_id, item_id, neg_id)
+        elif self.data_type == 'in_batch':
+            loss = self.InBatchLoss(user_id, item_id)
         
         return loss
     
-    def save_emb(self, save_path):
+    def save_emb(self, save_path, postfix=''):
         item_emb = self.item_id_embedding.weight.detach().cpu().numpy()
         item_emb = {i: item_emb[i].tolist() for i in range(item_emb.shape[0])}
-        pickle.dump(item_emb, open(os.path.join(save_path, 'item_emb.pkl'), 'wb'))
+        pickle.dump(item_emb, open(os.path.join(save_path, 'item_emb_%s.pkl' % postfix), 'wb'))
         user_emb = self.user_id_embedding.weight.detach().cpu().numpy()
         user_emb = {i: user_emb[i].tolist() for i in range(user_emb.shape[0])}
-        pickle.dump(user_emb, open(os.path.join(save_path, 'user_emb.pkl'), 'wb'))
+        pickle.dump(user_emb, open(os.path.join(save_path, 'user_emb_%s.pkl' % postfix), 'wb'))
 
     def get_user_emb(self, user_id):
         return self.user_id_embedding(user_id).detach().cpu().numpy()
@@ -66,19 +94,24 @@ if __name__ == '__main__':
     item_num = 3952 + 1
     user_num = 6040 + 1
     epoch_num = 10
-    batch_size = 128
+    batch_size = 512
     lr = 1e-3
-    lr_min = 1e-4
+    lr_min = 1e-5
+    device = 'cpu'
+    data_type = 'random'
 
-    model = DSSMModel(user_num, item_num, dim=16)
+    model = DSSMModel(user_num, item_num, dim=16, device=device, data_type=data_type)
+    if device != 'cpu':
+        model.cuda(int(device[-1]))
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     
-    workdir = '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/DSSM'
+    workdir = '/data/zhy/recommendation_system/Movie_Recsys/recall/DSSM'
 
     dataset = DSSMDataLoader(
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl',
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/movie_info.pkl',
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/user_info.pkl'
+        '/data/zhy/recommendation_system/Movie_Recsys/cache/train_readlist.pkl',
+        '/data/zhy/recommendation_system/Movie_Recsys/cache/movie_info.pkl',
+        '/data/zhy/recommendation_system/Movie_Recsys/cache/user_info.pkl',
+        data_type=data_type
     )
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 
@@ -90,6 +123,7 @@ if __name__ == '__main__':
         model.train()
         loss_epoch = 0.0
         tqdm_bar = tqdm(dataloader, ncols=100)
+        data_index = 1
         for data in tqdm_bar:
             optimizer.zero_grad()
             loss = model(data)
@@ -97,8 +131,15 @@ if __name__ == '__main__':
             optimizer.step()
             loss_epoch += loss
             scheduler.step()
-            tqdm_bar.set_postfix_str('lr: %.6f' % optimizer.state_dict()['param_groups'][0]['lr'])
+            tqdm_bar.set_postfix_str(
+                'lr: %.6f | loss: %.3f' % (optimizer.state_dict()['param_groups'][0]['lr'], loss_epoch / data_index)
+            )
+            data_index += 1
         print('Epoch: %d, Loss: %.3f' % (epoch, loss_epoch / len(dataloader)))
-    torch.save(model, './DSSM.pth')
+
+        if epoch != 0 and epoch % 10 == 0:
+            torch.save(model, './DSSM_epoch_%d.pth' % epoch)
+            model.save_emb('.', 'epoch_%d' % epoch)
+    torch.save(model, './DSSM_final.pth')
     # model.save_user_item_embedding_weights(workdir)
-    model.save_emb('.')
+    model.save_emb('.', 'final')
