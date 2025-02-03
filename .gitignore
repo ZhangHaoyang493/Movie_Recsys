@@ -3,3 +3,6 @@
 lightning_logs
 */**/__pycache__
 */__pycache__
+
+!/cache/user_info.pkl
+!/cache/movie_info.pkl
