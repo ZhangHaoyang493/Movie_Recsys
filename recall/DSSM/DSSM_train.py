@@ -50,18 +50,27 @@ class DSSMModel(nn.Module):
         # user_id: bx1   item_id: bx1   neg_id: bx10
         # user_emb: bx1xdim   item_emb: bx1xdim  neg_emb: bx10xdim
         b, _ = user_id.shape
-        user_emb = self.user_id_embedding(user_id)
+        user_emb = self.user_id_embedding(user_id)  # bx1xdim
         item_emb = self.item_id_embedding(item_id)
         neg_emb = self.item_id_embedding(neg_id)
 
         cat_item_emb = torch.concat([item_emb, neg_emb], dim=1) # bx11xdim
         
+        # cat_item_emb_len = torch.sqrt(torch.sum((cat_item_emb * cat_item_emb), dim=-1)) # bx11
+        # user_emb_len = torch.sqrt(torch.sum((user_emb * user_emb), dim=-1)) # bx1
+        # user_item_len_dot = cat_item_emb_len * user_emb_len
+
+
         dot_product = torch.matmul(user_emb, cat_item_emb.transpose(1, 2)).squeeze(1)  # bx11
+        # dot_product = dot_product / user_item_len_dot
 
         # 第一列是正样本
         dot_product[:, 0] = dot_product[:, 0] * -1
         loss = torch.log(1 + torch.exp(dot_product))
         loss = loss.sum()
+        # loss = torch.exp(dot_product)
+
+
         return loss / b
 
     def forward(self, data):
@@ -70,7 +79,7 @@ class DSSMModel(nn.Module):
         user_fea = data['user_feature'].to(self.device)
         item_fea = data['item_feature'].to(self.device)
         if self.data_type == 'random':
-            neg_id = data['neg_sample']
+            neg_id = data['neg_sample'].to(self.device)
         
         if self.data_type == 'random':
             return self.RandomNegLoss(user_id, item_id, neg_id)
@@ -94,9 +103,9 @@ if __name__ == '__main__':
     item_num = 3952 + 1
     user_num = 6040 + 1
     epoch_num = 10
-    batch_size = 512
-    lr = 1e-3
-    lr_min = 1e-5
+    batch_size = 256
+    lr = 1e-2
+    lr_min = 1e-4
     device = 'cpu'
     data_type = 'random'
 
@@ -105,18 +114,22 @@ if __name__ == '__main__':
         model.cuda(int(device[-1]))
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     
-    workdir = '/data/zhy/recommendation_system/Movie_Recsys/recall/DSSM'
+    workdir = '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/DSSM'
 
     dataset = DSSMDataLoader(
-        '/data/zhy/recommendation_system/Movie_Recsys/cache/train_readlist.pkl',
-        '/data/zhy/recommendation_system/Movie_Recsys/cache/movie_info.pkl',
-        '/data/zhy/recommendation_system/Movie_Recsys/cache/user_info.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/movie_info.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/user_info.pkl',
         data_type=data_type
     )
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=(len(dataset) // batch_size) * epoch_num, eta_min=lr_min)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, 
+        T_max=(len(dataset) // batch_size) * epoch_num, 
+        eta_min=lr_min
+    )
 
     
     for epoch in range(epoch_num):

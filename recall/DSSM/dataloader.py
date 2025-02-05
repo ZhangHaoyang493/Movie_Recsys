@@ -40,19 +40,28 @@ class DSSMDataLoader(Dataset):
 
         # 正常的负采样，困难负样本、简单负样本
         if self.data_type == 'random':
-            self.pos_sample = {}
+            self.pos_sample = []
             self.neg_sample = []
             for userid in train_readlist.keys():
                 for item_info in train_readlist[userid]:
                     if item_info[1] >= 4.0:
-                        if userid not in self.pos_sample.keys():
-                            self.pos_sample[userid] = []
-                        self.pos_sample[userid].append(item_info[0])
+                        # if userid not in self.pos_sample.keys():
+                        #     self.pos_sample[userid] = []
+                        self.pos_sample.append((userid, item_info[0]))
                     self.neg_sample.append(item_info[0])
+        
+        # 发现movies.dat里面的item id不是连续的，我们将其映射为连续的
+        # all_items_id = [int(i[0]) for i in self.item_info.values()]
+        # self.item_id_2_int = dict(list(zip(all_items_id, range(len(all_items_id)))))
+        # self.int_2_item_id = dict(list(zip(range(len(all_items_id)), all_items_id)))
+        # pickle.dump(self.item_id_2_int, open('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/item_id_2_int.pkl', 'wb'))
+        # pickle.dump(self.int_2_item_id, open('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/int_2_item_id.pkl', 'wb'))
+
+        # self.item_id_2_int = pickle.load(open('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/item_id_2_int.pkl', 'rb'))
 
 
     def __len__(self):
-        return len(self.all_data)
+        return len(self.all_data) if self.data_type == 'in_batch' else len(self.pos_sample)
     
     def in_batch_data(self, index):
         # user_info : '1': ['1', 'F', '1', '10', '48067']
@@ -74,7 +83,7 @@ class DSSMDataLoader(Dataset):
         }
 
     def random_neg_sample(self, index):
-        userid, itemid = self.all_data[index]
+        userid, itemid = self.pos_sample[index]
         user_info = self.user_info[userid]
         # 对user的info进行数字化
         # zip-code暂不知怎么处理
@@ -84,8 +93,8 @@ class DSSMDataLoader(Dataset):
         # 电影名和电影类型并没有处理
         item_info = torch.tensor([int(item_info[0])])
 
-        neg_sample = random.sample(self.neg_sample, 10)
-        neg_sample = [int(k) for k in neg_sample]
+        neg_sample = random.sample(self.neg_sample, 20)
+        neg_sample = [self.item_id_2_int[int(k)] for k in neg_sample]
 
         return {
             'userid': torch.tensor([int(userid)], dtype=torch.int),
