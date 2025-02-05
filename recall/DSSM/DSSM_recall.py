@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/data/zhy/recommendation_system/Movie_Recsys/recall')
+sys.path.append('/Users/zhanghaoyang/Desktop/Movie_Recsys/recall')
 
 import pickle
 from baseRecall import BaseRecall
@@ -16,7 +16,7 @@ class DSSMRecall(BaseRecall):
         
         self.user_emb = pickle.load(open(user_emb_path, 'rb'))
         self.item_emb = pickle.load(open(item_emb_path, 'rb'))
-        
+
         # 将item emb存入faiss数据库
         self.index2itemId = {}
         index = 0
@@ -52,10 +52,11 @@ class DSSMRecall(BaseRecall):
     
 if __name__ == '__main__':
     dssm_recall = DSSMRecall(
-        '/data/zhy/recommendation_system/Movie_Recsys/recall/DSSM/item_emb_final.pkl',
-        '/data/zhy/recommendation_system/Movie_Recsys/recall/DSSM/user_emb_final.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/DSSM/item_emb_final.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/DSSM/user_emb_final.pkl',
+        # '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/int_2_item_id.pkl'
         # '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/DSSM/DSSM.pth',
     )
 
     # dssm_recall.eval(val_data_path='/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/val_data.pkl', k=50)
-    dssm_recall.recall('1', k=1000)
+    dssm_recall.recall('1', k=30)

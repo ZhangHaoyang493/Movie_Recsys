@@ -1,11 +1,11 @@
 /cache/*.pkl
 .vscode
-lightning_logs
 */**/__pycache__
 */__pycache__
 **/*/*.pth
 */*.pth
-recall/**/*.pkl
+*/**/*.pkl
+
 
 !/cache/user_info.pkl
 !/cache/movie_info.pkl
