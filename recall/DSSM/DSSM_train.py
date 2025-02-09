@@ -15,13 +15,17 @@ from dataloader import DSSMDataLoader
 
 
 class DSSMModel(nn.Module):
-    def __init__(self, user_num, item_num, dim: int=16, device: str='cpu', data_type: str='random'):
+    def __init__(self, user_num, item_num, dim: int=16, device: str='cpu', data_type: str='random', neg_sample_num: int=1):
         super().__init__()
         self.user_id_embedding = nn.Embedding(user_num, dim)
         self.item_id_embedding = nn.Embedding(item_num, dim)
 
+        nn.init.xavier_uniform_(self.user_id_embedding.weight)
+        nn.init.xavier_uniform_(self.item_id_embedding.weight)
+
         self.device = torch.device(device)
         self.data_type = data_type
+        self.neg_sample_num = neg_sample_num
 
     def InBatchLoss(self, user_id, item_id):
         user_emb = self.user_id_embedding(user_id).squeeze(1)
@@ -66,6 +70,8 @@ class DSSMModel(nn.Module):
 
         # 第一列是正样本
         dot_product[:, 0] = dot_product[:, 0] * -1
+        dot_product[:, 1:] = dot_product[:, 1:] / self.neg_sample_num
+
         loss = torch.log(1 + torch.exp(dot_product))
         loss = loss.sum()
         # loss = torch.exp(dot_product)
@@ -108,8 +114,9 @@ if __name__ == '__main__':
     lr_min = 1e-4
     device = 'cpu'
     data_type = 'random'
+    neg_sample_num = 20
 
-    model = DSSMModel(user_num, item_num, dim=16, device=device, data_type=data_type)
+    model = DSSMModel(user_num, item_num, dim=16, device=device, data_type=data_type, neg_sample_num=neg_sample_num)
     if device != 'cpu':
         model.cuda(int(device[-1]))
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
@@ -120,7 +127,8 @@ if __name__ == '__main__':
         '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl',
         '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/movie_info.pkl',
         '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/user_info.pkl',
-        data_type=data_type
+        data_type=data_type,
+        neg_sample_num=neg_sample_num
     )
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 

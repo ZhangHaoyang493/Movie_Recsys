@@ -58,5 +58,5 @@ if __name__ == '__main__':
         # '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/DSSM/DSSM.pth',
     )
 
-    # dssm_recall.eval(val_data_path='/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/val_data.pkl', k=50)
-    dssm_recall.recall('1', k=30)
+    dssm_recall.eval(val_data_path='/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/val_data.pkl', k=50)
+    # dssm_recall.recall('1', k=30)

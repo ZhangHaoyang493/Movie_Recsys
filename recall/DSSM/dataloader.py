@@ -16,7 +16,8 @@ class DSSMDataLoader(Dataset):
                  train_readlist_path: str,
                  movie_info_path: str,
                  user_info_path: str,
-                 data_type: str):
+                 data_type: str,
+                 neg_sample_num: int):
         
         assert data_type in ['in_batch', 'random']
 
@@ -58,7 +59,7 @@ class DSSMDataLoader(Dataset):
         # pickle.dump(self.int_2_item_id, open('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/int_2_item_id.pkl', 'wb'))
 
         # self.item_id_2_int = pickle.load(open('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/item_id_2_int.pkl', 'rb'))
-
+        self.neg_sample_num = neg_sample_num
 
     def __len__(self):
         return len(self.all_data) if self.data_type == 'in_batch' else len(self.pos_sample)
@@ -93,8 +94,8 @@ class DSSMDataLoader(Dataset):
         # 电影名和电影类型并没有处理
         item_info = torch.tensor([int(item_info[0])])
 
-        neg_sample = random.sample(self.neg_sample, 20)
-        neg_sample = [self.item_id_2_int[int(k)] for k in neg_sample]
+        neg_sample = random.sample(self.neg_sample, self.neg_sample_num)
+        neg_sample = [int(k) for k in neg_sample]
 
         return {
             'userid': torch.tensor([int(userid)], dtype=torch.int),
