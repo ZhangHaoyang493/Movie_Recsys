@@ -60,21 +60,29 @@ class DSSMModel(nn.Module):
 
         cat_item_emb = torch.concat([item_emb, neg_emb], dim=1) # bx11xdim
         
-        # cat_item_emb_len = torch.sqrt(torch.sum((cat_item_emb * cat_item_emb), dim=-1)) # bx11
-        # user_emb_len = torch.sqrt(torch.sum((user_emb * user_emb), dim=-1)) # bx1
-        # user_item_len_dot = cat_item_emb_len * user_emb_len
+        # 计算向量长度
+        cat_item_emb_len = torch.sqrt(torch.sum((cat_item_emb * cat_item_emb), dim=-1)) # bx11
+        user_emb_len = torch.sqrt(torch.sum((user_emb * user_emb), dim=-1)) # bx1
+        user_item_len_dot = cat_item_emb_len * user_emb_len
 
 
         dot_product = torch.matmul(user_emb, cat_item_emb.transpose(1, 2)).squeeze(1)  # bx11
-        # dot_product = dot_product / user_item_len_dot
-
+        dot_product = dot_product / (user_item_len_dot + 1e-6) # 计算相似度
+ 
         # 第一列是正样本
-        dot_product[:, 0] = dot_product[:, 0] * -1
-        dot_product[:, 1:] = dot_product[:, 1:] / self.neg_sample_num
+        # dot_product[:, 0] = dot_product[:, 0] * -1
+        # dot_product[:, 1:] = dot_product[:, 1:] / self.neg_sample_num
 
-        loss = torch.log(1 + torch.exp(dot_product))
+        label = torch.zeros_like(dot_product)
+        label[:, 0] = 1
+
+
+        # loss = torch.log(1 + torch.exp(dot_product))
+        # loss = loss.sum()
+        dot_product = (dot_product + 1) / 2
+        loss = label * torch.log(dot_product + 1e-6) + (1 - label) * torch.log(1 - dot_product + 1e-6)
+        loss = -loss
         loss = loss.sum()
-        # loss = torch.exp(dot_product)
 
 
         return loss / b
@@ -121,12 +129,12 @@ if __name__ == '__main__':
         model.cuda(int(device[-1]))
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     
-    workdir = '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/DSSM'
+    workdir = '/Users/zhanghaoyang04/Desktop/Movie_Recsys/recall/DSSM'
 
     dataset = DSSMDataLoader(
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl',
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/movie_info.pkl',
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/user_info.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/train_readlist.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/movie_info.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/user_info.pkl',
         data_type=data_type,
         neg_sample_num=neg_sample_num
     )
@@ -158,7 +166,7 @@ if __name__ == '__main__':
             data_index += 1
         print('Epoch: %d, Loss: %.3f' % (epoch, loss_epoch / len(dataloader)))
 
-        if epoch != 0 and epoch % 10 == 0:
+        if epoch != 0 and epoch % 5 == 0:
             torch.save(model, './DSSM_epoch_%d.pth' % epoch)
             model.save_emb('.', 'epoch_%d' % epoch)
     torch.save(model, './DSSM_final.pth')
