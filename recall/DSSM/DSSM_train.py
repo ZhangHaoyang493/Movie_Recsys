@@ -20,36 +20,61 @@ class DSSMModel(nn.Module):
         self.user_id_embedding = nn.Embedding(user_num, dim)
         self.item_id_embedding = nn.Embedding(item_num, dim)
 
-        nn.init.xavier_uniform_(self.user_id_embedding.weight)
-        nn.init.xavier_uniform_(self.item_id_embedding.weight)
+
+        self.user_tower = nn.Sequential(
+            nn.Linear(dim, dim * 4),
+            nn.Linear(dim * 4, dim),
+            # nn.Linear(dim * 4, dim)
+        )
+
+        self.item_tower = nn.Sequential(
+            nn.Linear(dim, dim * 4),
+            nn.Linear(dim * 4, dim),
+            # nn.Linear(dim * 4, dim)
+        )
+        # nn.init.xavier_uniform_(self.user_id_embedding.weight)
+        # nn.init.xavier_uniform_(self.item_id_embedding.weight)
 
         self.device = torch.device(device)
         self.data_type = data_type
         self.neg_sample_num = neg_sample_num
 
+    # Sampled Softmax Loss
     def InBatchLoss(self, user_id, item_id):
         user_emb = self.user_id_embedding(user_id).squeeze(1)
         item_emb = self.item_id_embedding(item_id).squeeze(1)
+
+        if hasattr(self, 'user_tower') and hasattr(self, 'item_tower'):
+            user_emb = self.user_tower(user_emb)
+            item_emb = self.item_tower(item_emb)
+        
 
         dot_product_all = torch.matmul(user_emb, item_emb.T)
 
         b, _ = dot_product_all.shape
 
         # loss = dot_product_all.clone()
-        help_mat = (torch.ones_like(dot_product_all) - 2 * torch.eye(b).to(self.device))
+        help_mat = torch.eye(b).to(self.device)
         # help_mat = help_mat
 
         # for i in range(b):
         #     # i, i位置的是正样本
         #     dot_product_all[i, i] = dot_product_all[i, i].clone() * -1
-        loss = dot_product_all * help_mat
+        dot_product_all = torch.exp(dot_product_all)
+        dot_product_all_sum = torch.sum(dot_product_all, dim=-1, keepdim=True)
+        dot_product_all = dot_product_all / dot_product_all_sum
+        dot_product_all = torch.log(dot_product_all) * help_mat
+
+        loss = -dot_product_all.sum()# * help_mat
+
         
-        loss = torch.log(1 + torch.exp(loss))
+        # loss = torch.log(1 + torch.exp(loss))
         # loss = torch.log(loss)
         # loss = loss.sum(dim=-1).sum(dim=-1)
-        loss = loss.sum()
+        # loss = loss.sum()
         return loss / b
     
+    # Sampled Softmax Loss
     def RandomNegLoss(self, user_id, item_id, neg_id):
         # user_id: bx1   item_id: bx1   neg_id: bx10
         # user_emb: bx1xdim   item_emb: bx1xdim  neg_emb: bx10xdim
@@ -58,16 +83,21 @@ class DSSMModel(nn.Module):
         item_emb = self.item_id_embedding(item_id)
         neg_emb = self.item_id_embedding(neg_id)
 
+        if hasattr(self, 'user_tower') and hasattr(self, 'item_tower'):
+            user_emb = self.user_tower(user_emb)
+            item_emb = self.item_tower(item_emb)
+            neg_emb = self.item_tower(neg_emb)
+
         cat_item_emb = torch.concat([item_emb, neg_emb], dim=1) # bx11xdim
         
         # 计算向量长度
-        cat_item_emb_len = torch.sqrt(torch.sum((cat_item_emb * cat_item_emb), dim=-1)) # bx11
-        user_emb_len = torch.sqrt(torch.sum((user_emb * user_emb), dim=-1)) # bx1
-        user_item_len_dot = cat_item_emb_len * user_emb_len
+        # cat_item_emb_len = torch.sqrt(torch.sum((cat_item_emb * cat_item_emb), dim=-1)) # bx11
+        # user_emb_len = torch.sqrt(torch.sum((user_emb * user_emb), dim=-1)) # bx1
+        # user_item_len_dot = cat_item_emb_len * user_emb_len
 
 
         dot_product = torch.matmul(user_emb, cat_item_emb.transpose(1, 2)).squeeze(1)  # bx11
-        dot_product = dot_product / (user_item_len_dot + 1e-6) # 计算相似度
+        # dot_product = dot_product / (user_item_len_dot + 1e-6) # 计算相似度
  
         # 第一列是正样本
         # dot_product[:, 0] = dot_product[:, 0] * -1
@@ -76,14 +106,19 @@ class DSSMModel(nn.Module):
         label = torch.zeros_like(dot_product)
         label[:, 0] = 1
 
+        dot_product = torch.exp(dot_product)
+        dot_sum = torch.sum(dot_product, dim=-1, keepdim=True)
+        dot_product = dot_product / dot_sum
+
 
         # loss = torch.log(1 + torch.exp(dot_product))
         # loss = loss.sum()
-        dot_product = (dot_product + 1) / 2
-        loss = label * torch.log(dot_product + 1e-6) + (1 - label) * torch.log(1 - dot_product + 1e-6)
-        loss = -loss
-        loss = loss.sum()
+        
+        # loss = label * torch.log(dot_product + 1e-6) + (1 - label) * torch.log(1 - dot_product + 1e-6)
+        # loss = -loss
+        # loss = loss.sum()
 
+        loss = -torch.log(dot_product[:, 0]).sum()
 
         return loss / b
 
@@ -116,12 +151,13 @@ class DSSMModel(nn.Module):
 if __name__ == '__main__':
     item_num = 3952 + 1
     user_num = 6040 + 1
-    epoch_num = 10
+    epoch_num = 30
     batch_size = 256
-    lr = 1e-2
+    lr = 1e-3
     lr_min = 1e-4
     device = 'cpu'
     data_type = 'random'
+    # data_type = 'in_batch'
     neg_sample_num = 20
 
     model = DSSMModel(user_num, item_num, dim=16, device=device, data_type=data_type, neg_sample_num=neg_sample_num)
@@ -129,12 +165,12 @@ if __name__ == '__main__':
         model.cuda(int(device[-1]))
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     
-    workdir = '/Users/zhanghaoyang04/Desktop/Movie_Recsys/recall/DSSM'
+    workdir = '/Users/zhanghaoyang/Desktop/Movie_Recsys/recall/DSSM'
 
     dataset = DSSMDataLoader(
-        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/train_readlist.pkl',
-        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/movie_info.pkl',
-        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/user_info.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/movie_info.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/user_info.pkl',
         data_type=data_type,
         neg_sample_num=neg_sample_num
     )
@@ -166,7 +202,7 @@ if __name__ == '__main__':
             data_index += 1
         print('Epoch: %d, Loss: %.3f' % (epoch, loss_epoch / len(dataloader)))
 
-        if epoch != 0 and epoch % 5 == 0:
+        if epoch != 0 and epoch % 10 == 0:
             torch.save(model, './DSSM_epoch_%d.pth' % epoch)
             model.save_emb('.', 'epoch_%d' % epoch)
     torch.save(model, './DSSM_final.pth')
