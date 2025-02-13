@@ -9,3 +9,6 @@
 
 !/cache/user_info.pkl
 !/cache/movie_info.pkl
+!/cache/train_readlist.pkl
+!/cache/val_data.pkl
+!/cache/readlist.pkl

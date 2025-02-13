@@ -6,11 +6,11 @@ import random
 
 # 读取readlist，然后选取一部分的用户作为验证组，将他们打分为正向的最后一次记录拿出来作为验证数据
 # 然后这一次后面的数据要丢弃
-conf = yaml.safe_load(open('../../global_conf.yaml', 'r'))
+# conf = yaml.safe_load(open('/Users/zhanghaoyang/Desktop/Movie_Recsys/global_conf.yaml', 'r'))
 
-readlist = pickle.load(open(osp.join(conf['basedir'], 'cache', 'readlist.pkl'), 'rb'))
+readlist = pickle.load(open('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/readlist.pkl', 'rb'))
 userid = readlist.keys()
-val_userid = random.sample(userid, 500)
+val_userid = random.sample(userid, 1500)
 
 val_data = {}
 
@@ -30,6 +30,6 @@ for v_userid in val_userid:
     val_data[v_userid] = v_user_readlist[index]
     readlist[v_userid] = v_user_readlist[:index]
 
-pickle.dump(val_data, open(osp.join(conf['basedir'], 'cache', 'val_data.pkl'), 'wb'))
-pickle.dump(readlist, open(osp.join(conf['basedir'], 'cache', 'train_readlist.pkl'), 'wb'))
+pickle.dump(val_data, open(osp.join('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache', 'val_data.pkl'), 'wb'))
+pickle.dump(readlist, open(osp.join('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache', 'train_readlist.pkl'), 'wb'))
     
