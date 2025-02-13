@@ -15,29 +15,40 @@ from dataloader import DSSMDataLoader
 
 
 class DSSMModel(nn.Module):
-    def __init__(self, user_num, item_num, dim: int=16, device: str='cpu', data_type: str='random', neg_sample_num: int=1):
+    def __init__(self, 
+                 user_num, 
+                 item_num, 
+                 dim: int=16, 
+                 device: str='cpu', 
+                 data_type: str='random', 
+                 neg_sample_num: int=1,
+                 loss_fn_type: str='SS'):
         super().__init__()
+
+        assert loss_fn_type in ['SS', 'NCE', 'BPR'], 'invalid loss function type!'
+
         self.user_id_embedding = nn.Embedding(user_num, dim)
         self.item_id_embedding = nn.Embedding(item_num, dim)
 
 
-        self.user_tower = nn.Sequential(
-            nn.Linear(dim, dim * 4),
-            nn.Linear(dim * 4, dim),
-            # nn.Linear(dim * 4, dim)
-        )
+        # self.user_tower = nn.Sequential(
+        #     nn.Linear(dim, dim * 4),
+        #     nn.Linear(dim * 4, dim),
+        #     # nn.Linear(dim * 4, dim)
+        # )
 
-        self.item_tower = nn.Sequential(
-            nn.Linear(dim, dim * 4),
-            nn.Linear(dim * 4, dim),
-            # nn.Linear(dim * 4, dim)
-        )
+        # self.item_tower = nn.Sequential(
+        #     nn.Linear(dim, dim * 4),
+        #     nn.Linear(dim * 4, dim),
+        #     # nn.Linear(dim * 4, dim)
+        # )
         # nn.init.xavier_uniform_(self.user_id_embedding.weight)
         # nn.init.xavier_uniform_(self.item_id_embedding.weight)
 
         self.device = torch.device(device)
         self.data_type = data_type
         self.neg_sample_num = neg_sample_num
+        self.loss_fn_type = loss_fn_type
 
     # Sampled Softmax Loss
     def InBatchLoss(self, user_id, item_id):
@@ -78,7 +89,7 @@ class DSSMModel(nn.Module):
     def RandomNegLoss(self, user_id, item_id, neg_id):
         # user_id: bx1   item_id: bx1   neg_id: bx10
         # user_emb: bx1xdim   item_emb: bx1xdim  neg_emb: bx10xdim
-        b, _ = user_id.shape
+        
         user_emb = self.user_id_embedding(user_id)  # bx1xdim
         item_emb = self.item_id_embedding(item_id)
         neg_emb = self.item_id_embedding(neg_id)
@@ -98,29 +109,36 @@ class DSSMModel(nn.Module):
 
         dot_product = torch.matmul(user_emb, cat_item_emb.transpose(1, 2)).squeeze(1)  # bx11
         # dot_product = dot_product / (user_item_len_dot + 1e-6) # 计算相似度
- 
-        # 第一列是正样本
-        # dot_product[:, 0] = dot_product[:, 0] * -1
-        # dot_product[:, 1:] = dot_product[:, 1:] / self.neg_sample_num
+
 
         label = torch.zeros_like(dot_product)
         label[:, 0] = 1
-
-        dot_product = torch.exp(dot_product)
-        dot_sum = torch.sum(dot_product, dim=-1, keepdim=True)
-        dot_product = dot_product / dot_sum
-
-
-        # loss = torch.log(1 + torch.exp(dot_product))
-        # loss = loss.sum()
         
-        # loss = label * torch.log(dot_product + 1e-6) + (1 - label) * torch.log(1 - dot_product + 1e-6)
-        # loss = -loss
-        # loss = loss.sum()
+        # sample sigmoid loss (SS Loss)
+        if self.loss_fn_type == 'SS':
+            b, _ = dot_product.shape
+            dot_product = torch.exp(dot_product)
+            dot_sum = torch.sum(dot_product, dim=-1, keepdim=True)
+            dot_product = dot_product / dot_sum
+            loss = -torch.log(dot_product[:, 0]).sum()
+            loss = loss / b
+        elif self.loss_fn_type == 'NCE':
+            # NCE loss
+            b, n = dot_product.shape
+            loss = torch.sigmoid(dot_product)
+            loss = -(label * torch.log(loss + 1e-6) + (1 - label) * torch.log(1 - loss + 1e-6))
+            loss = loss.sum()
+            loss = loss / (b * n)
+        elif self.loss_fn_type == 'BPR':
+            # BPR Loss
+            b, _ = dot_product.shape
+            pos_weight = dot_product[:, 0].view(-1, 1)
+            loss = dot_product - pos_weight
+            loss = loss[:, 1:]
+            loss = torch.log(1 + torch.exp(loss)).sum()
+            loss = loss / b
 
-        loss = -torch.log(dot_product[:, 0]).sum()
-
-        return loss / b
+        return loss
 
     def forward(self, data):
         user_id = data['userid'].to(self.device)
@@ -151,7 +169,7 @@ class DSSMModel(nn.Module):
 if __name__ == '__main__':
     item_num = 3952 + 1
     user_num = 6040 + 1
-    epoch_num = 30
+    epoch_num = 15
     batch_size = 256
     lr = 1e-3
     lr_min = 1e-4
@@ -202,7 +220,7 @@ if __name__ == '__main__':
             data_index += 1
         print('Epoch: %d, Loss: %.3f' % (epoch, loss_epoch / len(dataloader)))
 
-        if epoch != 0 and epoch % 10 == 0:
+        if epoch != 0 and epoch % epoch_num == 0:
             torch.save(model, './DSSM_epoch_%d.pth' % epoch)
             model.save_emb('.', 'epoch_%d' % epoch)
     torch.save(model, './DSSM_final.pth')
