@@ -10,7 +10,7 @@ import random
 
 readlist = pickle.load(open('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/readlist.pkl', 'rb'))
 userid = readlist.keys()
-val_userid = random.sample(userid, 1500)
+val_userid = list(userid)# random.sample(userid, 1500)
 
 val_data = {}
 
@@ -29,6 +29,8 @@ for v_userid in val_userid:
 
     val_data[v_userid] = v_user_readlist[index]
     readlist[v_userid] = v_user_readlist[:index]
+
+print(len(val_data.keys()))
 
 pickle.dump(val_data, open(osp.join('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache', 'val_data.pkl'), 'wb'))
 pickle.dump(readlist, open(osp.join('/Users/zhanghaoyang/Desktop/Movie_Recsys/cache', 'train_readlist.pkl'), 'wb'))

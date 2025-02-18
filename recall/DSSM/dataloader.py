@@ -75,12 +75,18 @@ class DSSMDataLoader(Dataset):
         item_info = self.item_info[itemid]
         # item info数字化
         # 电影名和电影类型并没有处理
-        item_info = torch.tensor([int(item_info[0])])
+
+        # 处理电影类型
+        item_gene = item_info[-1]
+        item_gene = [self.gene_dict[gene] for gene in item_gene]
+        # item_info = torch.tensor([int(item_info[0]), self.gene_dict[]])
+        while len(item_gene) < 10:  # 将item_gene的长度补充到10
+            item_gene.append(-1)
         return {
             'userid': torch.tensor([int(userid)], dtype=torch.int),
             'itemid': torch.tensor([int(itemid)], dtype=torch.int),
             'user_feature': user_info,
-            'item_feature': item_info
+            'item_gene': torch.tensor(item_gene)
         }
 
     def random_neg_sample(self, index):
