@@ -9,11 +9,20 @@ from tqdm import tqdm
 import numpy as np
 
 
-class BaseSortModel(nn.Module):
-    def __init__(self):
+class BaseSort():
+    def __init__(self, train_readlist_path: str):
         super().__init__()
 
-
-    def binary_cross_entropy_loss(self, logit, label):
-        return -(label * torch.log(logit + 1e-6) + (1 - label) * torch.log(1 - logit + 1e-6))
+        train_readlist = pickle.load(open(train_readlist_path, 'rb'))
+        self.weight = {}
+        for userid in train_readlist.keys():
+            self.weight[userid] = len(train_readlist[userid])
     
+
+
+    
+    
+    def eval_gauc(self, eval_data_path: str):
+        eval_data = pickle.load(open(eval_data_path, 'rb'))
+
+        for userid in eval_data:
