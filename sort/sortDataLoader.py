@@ -15,11 +15,8 @@ class SortModelDataLoader(Dataset):
     def __init__(self, 
                  train_readlist_path: str,
                  movie_info_path: str,
-                 user_info_path: str,
-                 data_type: str,
-                 neg_sample_num: int):
+                 user_info_path: str):
         
-        assert data_type in ['in_batch', 'random']
 
         train_readlist: dict = pickle.load(open(train_readlist_path, 'rb'))
         self.all_data = []
@@ -27,7 +24,18 @@ class SortModelDataLoader(Dataset):
         self.user_info = pickle.load(open(user_info_path, 'rb'))
         for userid in train_readlist.keys():
             for item_info in train_readlist[userid]:
-                self.all_data.append([item_info[0], item_info[1], item_info[2]])
+                self.all_data.append([userid, item_info[0], item_info[1], item_info[2]])
+
+
+        self.age_dict = {
+            1: 0,
+            18: 1,
+            25: 2,
+            35: 3,
+            45: 4,
+            50: 5,
+            56: 6,
+        }
 
         self.gene_dict = {
             'Action': 18, 'Adventure': 1, 'Animation': 2, "Children's": 3,
@@ -45,7 +53,7 @@ class SortModelDataLoader(Dataset):
 
 
     def __getitem__(self, index):
-        userid, itemid, score = self.all_data[index]
+        userid, itemid, score, _ = self.all_data[index]
         user_info = self.user_info[userid]
         item_info = self.item_info[itemid]
 
@@ -64,7 +72,7 @@ class SortModelDataLoader(Dataset):
             'userid': torch.tensor([int(userid)]),
             'itemid': torch.tensor([int(itemid)]),
             'score': torch.tensor([float(score)]),
-            'user_age': torch.tensor([user_age]),
+            'user_age': torch.tensor([self.age_dict[user_age]]),
             'user_occupation': torch.tensor([user_occupation]),
             'item_kind': torch.tensor(item_kind),
             'label': torch.tensor([1 if score >= 4 else 0])
@@ -74,9 +82,9 @@ class SortModelDataLoader(Dataset):
 
 def get_sort_dataloader(batch_size: int, num_workers:int = 4):
     dataset = SortModelDataLoader(
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl',
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/movie_info.pkl',
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/user_info.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/train_readlist.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/movie_info.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/user_info.pkl',
     )
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 
