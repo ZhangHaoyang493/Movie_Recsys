@@ -14,3 +14,5 @@ class BaseRecall():
             if val_data[userid][0] in recall_res[userid]:
                 recall_num += 1
         print('Recall Precision: %.2f%s' % (recall_num / len(val_data.keys()) * 100, '%'))
+
+    
