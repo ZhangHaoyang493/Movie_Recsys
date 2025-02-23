@@ -5,7 +5,8 @@
 **/*/*.pth
 */*.pth
 */**/*.pkl
-
+*.pth
+log
 
 !/cache/user_info.pkl
 !/cache/movie_info.pkl
