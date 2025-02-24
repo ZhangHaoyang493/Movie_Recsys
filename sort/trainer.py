@@ -1,7 +1,6 @@
 import os
 import torch
 from torch import optim, nn, utils, Tensor
-from torchvision.transforms import ToTensor
 from torch.utils.data import Dataset, DataLoader
 import pickle
 from tqdm import tqdm
