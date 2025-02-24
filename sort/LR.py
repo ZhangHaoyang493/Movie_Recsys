@@ -39,7 +39,7 @@ class LRSortModel(nn.Module):
     def binary_cross_entropy_loss(self, logit, label):
         return (-(label * torch.log(logit + 1e-6) + (1 - label) * torch.log(1 - logit + 1e-6))).sum() / label.shape[0]
 
-    def train_step(self, data):
+    def get_logit(self, data):
         user_weight = self.user_id_para(data['userid'])
         item_weight = self.item_id_para(data['itemid'])
         age_weight = self.age_para(data['user_age'])
@@ -55,7 +55,7 @@ class LRSortModel(nn.Module):
         
         label = data['label']
 
-        logit = torch.sigmoid(self.train_step(data))
+        logit = torch.sigmoid(self.get_logit(data))
 
 
         loss = self.binary_cross_entropy_loss(logit, label)
@@ -63,7 +63,7 @@ class LRSortModel(nn.Module):
         return {'loss': loss, 'auc': auc}
     
     def eval_(self, data):
-        logit = torch.sigmoid(self.train_step(data))
+        logit = torch.sigmoid(self.get_logit(data))
         label = data['label']
         
         return logit.view(1).detach().cpu().numpy()[0], label.view(1).detach().cpu().numpy()[0]

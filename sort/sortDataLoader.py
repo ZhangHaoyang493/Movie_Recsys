@@ -1,8 +1,6 @@
 import os
 import torch
 from torch import optim, nn, utils, Tensor
-from torchvision.datasets import MNIST
-from torchvision.transforms import ToTensor
 from torch.utils.data import Dataset, DataLoader
 import pickle
 from tqdm import tqdm
@@ -118,10 +116,10 @@ class SortModelDataLoader(Dataset):
 
 def get_sort_dataloader(batch_size: int=1, num_workers:int = 4, type: str='train'):
     dataset = SortModelDataLoader(
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl',
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/movie_info.pkl',
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/user_info.pkl',
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/val_data.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/train_readlist.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/movie_info.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/user_info.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/val_data.pkl',
         type=type
     )
     if type == 'test':

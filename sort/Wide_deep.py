@@ -39,13 +39,13 @@ class WideDeepSortModel(nn.Module):
         return (-(label * torch.log(logit + 1e-6) + (1 - label) * torch.log(1 - logit + 1e-6))).sum() / label.shape[0]
 
 
-    def train_step(self, data):
-        return self.lr.train_step(data).view(-1, 1) + self.deep.train_step(data).view(-1, 1)
+    def get_logit(self, data):
+        return self.lr.get_logit(data).view(-1, 1) + self.deep.get_logit(data).view(-1, 1)
     
     def forward(self, data):
         
 
-        logit = torch.sigmoid(self.train_step(data))
+        logit = torch.sigmoid(self.get_logit(data))
         label = data['label']
 
 
@@ -55,7 +55,7 @@ class WideDeepSortModel(nn.Module):
     
     def eval_(self, data):
 
-        logit = self.train_step(data)
+        logit = torch.sigmoid(self.get_logit(data))
         label = data['label']
         return logit.view(1).detach().cpu().numpy()[0], label.view(1).detach().cpu().numpy()[0]
     

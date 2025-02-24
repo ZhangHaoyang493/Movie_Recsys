@@ -22,8 +22,23 @@ from trainer import Trainer
 #             'item_kind': torch.tensor(item_kind),
 #             'label': torch.tensor([1 if score >= 4 else 0])
 #         }
+class DCNBlock(nn.Module):
+    def __init__(self, in_dim):
+        super().__init__()
+        self.w = nn.Parameter(torch.randn(1, in_dim, 1))
+        self.b = nn.Parameter(torch.zeros((1, in_dim, 1)))
 
-class DEEPSortModel(nn.Module):
+    def forward(self, x0, xl):
+        # x0: bxdimx1   xl: bxdimx1
+        cross_fea = torch.matmul(x0, torch.transpose(xl, 1, 2))   # bxdimxdim
+        cross_fea = torch.matmul(cross_fea, self.w)  # bxdimx1
+        cross_fea = cross_fea + self.b
+        cross_fea = cross_fea + xl
+        return x0, cross_fea
+
+
+
+class DCNv1SortModel(nn.Module):
     def __init__(self, 
                 user_num,
                 item_num,
@@ -52,6 +67,14 @@ class DEEPSortModel(nn.Module):
             nn.Linear(32, 1),
         )
 
+        self.dcn = nn.ModuleList(
+            [
+                DCNBlock(all_dim),
+                DCNBlock(all_dim),
+                DCNBlock(all_dim),
+            ]
+        )
+
 
     def binary_cross_entropy_loss(self, logit, label):
         return (-(label * torch.log(logit + 1e-6) + (1 - label) * torch.log(1 - logit + 1e-6))).sum() / label.shape[0]
@@ -74,7 +97,12 @@ class DEEPSortModel(nn.Module):
 
         all_feature = torch.concat([user_weight, item_weight, age_weight, gender_weight, occ_weight, kind_weight], dim=1) #bx15x8
         all_feature = all_feature.view(b, -1)
-        logit = self.mlp(all_feature) # bx1
+
+        x0, xl = all_feature.unsqueeze(-1), all_feature.unsqueeze(-1)
+        for dcn in self.dcn:
+            x0, xl = dcn(x0, xl)
+
+        logit = self.mlp(xl.squeeze(-1)) # bx1
         return logit
     
     def forward(self, data):
@@ -112,10 +140,10 @@ if __name__ == '__main__':
     # data_type = 'in_batch'
     neg_sample_num = 20
 
-    model = DEEPSortModel(user_num, item_num, user_age_num=7 + 1, user_gender_num=2 + 1, user_occupation_num=21 + 1, item_kind_num=18 + 1)
+    model = DCNv1SortModel(user_num, item_num, user_age_num=7 + 1, user_gender_num=2 + 1, user_occupation_num=21 + 1, item_kind_num=18 + 1)
     dataloader = get_sort_dataloader(batch_size=batch_size, num_workers=0)
     eval_dataloader = get_sort_dataloader(type='test', num_workers=0)
-    trainer = Trainer(model, 'Deep', './log')
+    trainer = Trainer(model, 'DCNv1', './log')
     trainer.set_config(epoch_num, lr, 'adam', dataloader, eval_dataloader, 'cosin', lr_min, save_epoch=epoch_num, eval_epoch=1)
     trainer.train()
     trainer.eval()
