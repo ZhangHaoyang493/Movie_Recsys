@@ -29,6 +29,7 @@ class SortModelDataLoader(Dataset):
         self.history_len = history_len
         self.kind_len = kind_len
 
+        train_readlist: dict = pickle.load(open(train_readlist_path, 'rb'))
         # 获取用户正向的阅读历史
         for userid in train_readlist.keys():
             if userid not in self.user_pos_history.keys():
@@ -38,7 +39,7 @@ class SortModelDataLoader(Dataset):
                     self.user_pos_history[userid].append((item_info[0], item_info[1], item_info[2]))
 
         if type == 'train':
-            train_readlist: dict = pickle.load(open(train_readlist_path, 'rb'))
+            
             for userid in train_readlist.keys():
                 for item_info in train_readlist[userid]:
                     self.all_data.append([userid, item_info[0], item_info[1], item_info[2]])
@@ -111,10 +112,12 @@ class SortModelDataLoader(Dataset):
         his_list = self.user_pos_history[userid][:history_index]
         for his in his_list:
             user_his_item_id.append(int(his[0]))
-            user_his_item_kind.append(self.get_item_kind())
+            user_his_item_kind.append(self.get_item_kind(his[0]))
         while len(user_his_item_id) < self.history_len:
             user_his_item_id = [0] + user_his_item_id
             user_his_item_kind = [[0] * self.kind_len] + user_his_item_kind
+        user_his_item_id = user_his_item_id[-self.history_len:]
+        user_his_item_kind = user_his_item_kind[-self.history_len:]
         return user_his_item_id, user_his_item_kind
 
     def __getitem__(self, index):
@@ -147,7 +150,10 @@ class SortModelDataLoader(Dataset):
             'item_kind': torch.tensor(item_kind),
             'item_id_his': torch.tensor(his_id),
             'item_kind_his': torch.tensor(his_kind),
-            'label': torch.tensor([1 if score >= 4 else 0])
+            'label': torch.tensor([1 if score >= 4 else 0]),
+            'label_lower_3': torch.tensor([1 if score <= 3 else 0]),
+            'label_4': torch.tensor([1 if score == 4 else 0]),
+            'label_5': torch.tensor([1 if score == 5 else 0]),
         }
         # else:
         #     user_id_one_hot = torch.sparse_coo_tensor(torch.tensor([[int(userid) - 1]]), torch.tensor([1]), (self.user_num))
@@ -174,13 +180,13 @@ class SortModelDataLoader(Dataset):
 
 def get_sort_dataloader(batch_size: int=1, num_workers:int = 4, type: str='train', his_len=5, kind_len=10):
     dataset = SortModelDataLoader(
-        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/train_readlist.pkl',
-        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/movie_info.pkl',
-        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/user_info.pkl',
-        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/val_data.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/movie_info.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/user_info.pkl',
+        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/val_data.pkl',
         type=type,
-        history_len=5,
-        kind_len=5,
+        history_len=his_len,
+        kind_len=kind_len,
     )
     if type == 'test':
         return DataLoader(dataset, batch_size=1, shuffle=False, num_workers=num_workers)
