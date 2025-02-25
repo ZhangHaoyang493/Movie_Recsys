@@ -67,7 +67,7 @@ class DINSortModel(nn.Module):
         self.his_item_dim = (1 + self.kind_len) * dim
 
         self.dim = dim
-        all_dim = dim * (6 + self.kind_len) + self.his_item_dim
+        all_dim = dim * (5 + self.kind_len) + self.his_item_dim
         self.mlp = nn.Sequential(
             nn.Linear(all_dim, 128),
             nn.ReLU(),
@@ -78,7 +78,7 @@ class DINSortModel(nn.Module):
             nn.Linear(32, 1),
         )
 
-        self.act_unit = ActUnit((1 + self.kind_len) * dim)
+        self.act_unit = ActUnit(self.his_item_dim * 3)
 
 
     def binary_cross_entropy_loss(self, logit, label):
@@ -116,8 +116,8 @@ class DINSortModel(nn.Module):
             his_item_kind_weight = his_item_kind_weight * weight_tensor
 
             id_kind_feature = torch.concat([his_item_weight, his_item_kind_weight], dim=-2).view(b, -1)
-            his_feature.append(id_kind_feature)
-        his_feature = torch.tensor(his_feature) # bx his_len x his_dim
+            his_feature.append(id_kind_feature.view(-1, 1, self.his_item_dim))
+        his_feature = torch.cat(his_feature, dim=1) # bx his_len x his_dim
         item_feature_now = torch.concat([item_weight, kind_weight], dim=-2).view(b, 1, -1).repeat(1, self.his_len, 1)
 
         act_weight = self.act_unit(his_feature, item_feature_now) # b x his_len x 1
@@ -128,7 +128,7 @@ class DINSortModel(nn.Module):
 
         all_feature = torch.concat([user_weight, item_weight, age_weight, gender_weight, occ_weight, kind_weight], dim=1) #bx15x8
         all_feature = all_feature.view(b, -1)
-        all_feature = torch.concat(all_feature, his_feature_pooling)
+        all_feature = torch.concat([all_feature, his_feature_pooling], dim=-1)
         logit = self.mlp(all_feature) # bx1
         return logit
     
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     item_num = 3952 + 1
     user_num = 6040 + 1
     epoch_num = 15
-    batch_size = 256
+    batch_size = 128
     lr = 1e-3
     lr_min = 1e-4
     device = 'cpu'
