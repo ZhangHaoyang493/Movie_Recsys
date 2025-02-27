@@ -125,7 +125,7 @@ class SortModelDataLoader(Dataset):
     def user_actice_equal_frequence_split(self, active):
         split_interval = [[3, 25], [25, 35], [35, 48], [48, 67], [67, 92], [92, 123], [123, 169], [169, 250], [251, 396], [396, 2312]]
         for i, interval in enumerate(split_interval):
-            if active >= split_interval[0] and active < split_interval[1]:
+            if active >= interval[0] and active < interval[1]:
                 return i
         return -1
     
@@ -156,15 +156,15 @@ class SortModelDataLoader(Dataset):
         # 'std_score': 0.45905420991926166, 
         # 'like_kinds': [['Drama', 21], ["Children's", 18], ['Animation', 16]]}
         user_fe = self.user_fe[userid]
-        user_act = self.user_fe['active']
+        user_act = self.user_fe[userid]['active']
         user_act = self.user_actice_equal_frequence_split(user_act)
-        assert user_act >= 0
+        # assert user_act >= 0
 
-        user_mean_score = self.user_fe['mean_score']
+        user_mean_score = self.user_fe[userid]['mean_score']
         user_mean_score = self.user_mean_score_equal_interval_split(user_mean_score)
         
-        user_std_score = self.user_fe['std_score']
-        user_like_kinds = self.user_fe['like_kinds']
+        user_std_score = self.user_fe[userid]['std_score']
+        user_like_kinds = self.user_fe[userid]['like_kinds']
         user_like_kinds = [self.gene_dict[i[0]] for i in user_like_kinds]
         
         
@@ -183,7 +183,7 @@ class SortModelDataLoader(Dataset):
             'label_lower_3': torch.tensor([1 if score <= 3 else 0]),
             'label_4': torch.tensor([1 if score == 4 else 0]),
             'label_5': torch.tensor([1 if score == 5 else 0]),
-            'user_act'
+            # 'user_act'
         }
         # else:
         #     user_id_one_hot = torch.sparse_coo_tensor(torch.tensor([[int(userid) - 1]]), torch.tensor([1]), (self.user_num))
@@ -210,10 +210,11 @@ class SortModelDataLoader(Dataset):
 
 def get_sort_dataloader(batch_size: int=1, num_workers:int = 4, type: str='train', his_len=5, kind_len=10):
     dataset = SortModelDataLoader(
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/train_readlist.pkl',
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/movie_info.pkl',
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/user_info.pkl',
-        '/Users/zhanghaoyang/Desktop/Movie_Recsys/cache/val_data.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/train_readlist.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/movie_info.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/user_info.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/val_data.pkl',
+        '/Users/zhanghaoyang04/Desktop/Movie_Recsys/cache/user_fe.pkl',
         type=type,
         history_len=his_len,
         kind_len=kind_len,

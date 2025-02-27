@@ -45,23 +45,25 @@ class MMoESortModel(nn.Module):
         all_dim = dim * 15
         
         expert_dims = [all_dim, 64, 32]
-        self.expert1 = self.deep_net(dims=expert_dims)
-        self.expert2 = self.deep_net(dims=expert_dims)
-        self.expert3 = self.deep_net(dims=expert_dims)
-        self.expert4 = self.deep_net(dims=expert_dims)
-        self.expert5 = self.deep_net(dims=expert_dims)
-        self.expert6 = self.deep_net(dims=expert_dims)
+        self.expert_score_4_1 = self.deep_net(dims=expert_dims)
+        self.expert_score_4_2 = self.deep_net(dims=expert_dims)
+        self.expert_score_5_1 = self.deep_net(dims=expert_dims)
+        self.expert_score_5_2 = self.deep_net(dims=expert_dims)
+        self.expert_like_1 = self.deep_net(dims=expert_dims)
+        self.expert_like_2 = self.deep_net(dims=expert_dims)
+        self.expert_share_1 = self.deep_net(dims=expert_dims)
+        self.expert_share_2 = self.deep_net(dims=expert_dims)
 
         tower_dim = [32, 16, 1]
-        self.tower_score_lower_3 = self.deep_net(tower_dim)
         self.tower_score4 = self.deep_net(tower_dim)
         self.tower_score5 = self.deep_net(tower_dim)
         self.tower_like = self.deep_net(tower_dim)
 
-        gate_dim = [all_dim, 32, 6]
-        self.gate_1 = self.deep_net(gate_dim)
-        self.gate_2 = self.deep_net(gate_dim)
-        self.gate_3 = self.deep_net(gate_dim)
+        gate_dim = [all_dim, 32, 4]
+        self.gate_expert_4 = self.deep_net(gate_dim)
+        self.gate_expert_5 = self.deep_net(gate_dim)
+        self.gate_expert_like = self.deep_net(gate_dim)
+        self.gate_expert_share = self.deep_net([all_dim, 32, 8])
 
 
         self.loss_weight = nn.Parameter(torch.randn((3,)))
@@ -99,27 +101,38 @@ class MMoESortModel(nn.Module):
         all_feature = all_feature.view(b, -1)
         # logit = self.mlp(all_feature) # bx1
 
-        expert1_out = self.expert1(all_feature).view(b, 1, -1)
-        expert2_out = self.expert2(all_feature).view(b, 1, -1)
-        expert3_out = self.expert3(all_feature).view(b, 1, -1)
-        expert4_out = self.expert4(all_feature).view(b, 1, -1)
-        expert5_out = self.expert5(all_feature).view(b, 1, -1)
-        expert6_out = self.expert6(all_feature).view(b, 1, -1) # bx32
+        expert_41 = self.expert_score_4_1(all_feature).view(b, 1, -1)
+        expert_42 = self.expert_score_4_2(all_feature).view(b, 1, -1)
+        expert_51 = self.expert_score_5_1(all_feature).view(b, 1, -1)
+        expert_52 = self.expert_score_5_2(all_feature).view(b, 1, -1)
+        expert_like1 = self.expert_like_1(all_feature).view(b, 1, -1)
+        expert_like2 = self.expert_like_2(all_feature).view(b, 1, -1) # bx32
+        expert_share1 = self.expert_share_1(all_feature).view(b, 1, -1)
+        expert_share2 = self.expert_share_1(all_feature).view(b, 1, -1)
+
+        fea_score_4 = torch.cat([expert_41, expert_42, expert_share1, expert_share2], dim=1) # bx4x32
+        fea_score_5 = torch.cat([expert_51, expert_52, expert_share1, expert_share2], dim=1)
+        fea_score_like = torch.cat([expert_41, expert_42, expert_share1, expert_share2], dim=1)
+        fea_score_share = torch.cat([expert_41, expert_42, expert_51, expert_52, expert_like1, expert_like2, expert_share1, expert_share2], dim=1)
 
 
-        gate1_out = F.softmax(self.gate_1(all_feature), dim=-1).view(b, -1, 1) # bx6
-        gate2_out = F.softmax(self.gate_2(all_feature), dim=-1).view(b, -1, 1) # bx6
-        gate3_out = F.softmax(self.gate_3(all_feature), dim=-1).view(b, -1, 1) # bx6
+        gate1_out = F.softmax(self.gate_expert_4(all_feature), dim=-1).view(b, -1, 1) # bx4x1
+        gate2_out = F.softmax(self.gate_expert_5(all_feature), dim=-1).view(b, -1, 1) # bx4x1
+        gate3_out = F.softmax(self.gate_expert_like(all_feature), dim=-1).view(b, -1, 1) # bx4x1
+        gate3_out = F.softmax(self.gate_expert_share(all_feature), dim=-1).view(b, -1, 1) # bx8x1
 
-        expert_fea = torch.cat([expert1_out, expert2_out, expert3_out, expert4_out, expert5_out, expert6_out], dim=1) # bx6x32
+        # expert_fea = torch.cat([expert1_out, expert2_out, expert3_out, expert4_out, expert5_out, expert6_out], dim=1) # bx6x32
         
-        tower1_fea = torch.sum(gate1_out * expert_fea, dim=1)
-        tower2_fea = torch.sum(gate2_out * expert_fea, dim=1)
-        tower3_fea = torch.sum(gate3_out * expert_fea, dim=1)
+        tower4_fea = torch.sum(gate1_out * fea_score_4, dim=1)
+        tower5_fea = torch.sum(gate2_out * fea_score_5, dim=1)
+        towerlike_fea = torch.sum(gate3_out * fea_score_like, dim=1)
+        towershare_fea = torch.sum(gate3_out * fea_score_5, dim=1)
 
-        score_4 = self.tower_score4(tower1_fea)
-        score_5 = self.tower_score5(tower2_fea)
-        like = self.tower_like(tower3_fea)
+        score_4 = self.tower_score4(tower4_fea)
+        score_5 = self.tower_score5(tower5_fea)
+        like = self.tower_like(towerlike_fea)
+        
+
 
         return (score_4, score_5, like)
     
@@ -142,8 +155,8 @@ class MMoESortModel(nn.Module):
         loss_5 = self.binary_cross_entropy_loss(score_5, label5)
         loss_like = self.binary_cross_entropy_loss(like, label)
 
-        loss = torch.exp(-self.loss_weight[0]) * loss_4 + \
-                torch.exp(-self.loss_weight[1]) * loss_5 + torch.exp(-self.loss_weight[2]) * loss_like + \
+        loss = torch.exp(-self.loss_weight[1]) * loss_4 + \
+                torch.exp(-self.loss_weight[2]) * loss_5 + torch.exp(-self.loss_weight[3]) * loss_like + \
                 (torch.sum(self.loss_weight))
         
         auc_4 = self.auc(score_4, label4)
