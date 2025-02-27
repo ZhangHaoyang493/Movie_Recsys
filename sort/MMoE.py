@@ -24,7 +24,7 @@ from trainer import Trainer
 #             'label': torch.tensor([1 if score >= 4 else 0])
 #         }
 
-class DEEPSortModel(nn.Module):
+class MMoESortModel(nn.Module):
     def __init__(self, 
                 user_num,
                 item_num,
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     # data_type = 'in_batch'
     neg_sample_num = 20
 
-    model = DEEPSortModel(user_num, item_num, user_age_num=7 + 1, user_gender_num=2 + 1, user_occupation_num=21 + 1, item_kind_num=18 + 1)
+    model = MMoESortModel(user_num, item_num, user_age_num=7 + 1, user_gender_num=2 + 1, user_occupation_num=21 + 1, item_kind_num=18 + 1)
     dataloader = get_sort_dataloader(batch_size=batch_size, num_workers=0)
     eval_dataloader = get_sort_dataloader(type='test', num_workers=0)
     trainer = Trainer(model, 'Deep', './log')
