@@ -15,6 +15,7 @@ class SortModelDataLoader(Dataset):
                  movie_info_path: str,
                  user_info_path: str,
                  eval_data_path: str,
+                 user_fe_path: str,
                  history_len:int=5,
                  kind_len:int=10,
                  type='train'): #, one_hot: bool=False, user_num:int =6040, item_num:int =3952):
@@ -24,6 +25,7 @@ class SortModelDataLoader(Dataset):
         self.all_data = []
         self.item_info = pickle.load(open(movie_info_path, 'rb'))
         self.user_info = pickle.load(open(user_info_path, 'rb'))
+        self.user_fe = pickle.load(open(user_fe_path, 'rb'))
         self.user_pos_history = {}
 
         self.history_len = history_len
@@ -119,6 +121,18 @@ class SortModelDataLoader(Dataset):
         user_his_item_id = user_his_item_id[-self.history_len:]
         user_his_item_kind = user_his_item_kind[-self.history_len:]
         return user_his_item_id, user_his_item_kind
+    
+    def user_actice_equal_frequence_split(self, active):
+        split_interval = [[3, 25], [25, 35], [35, 48], [48, 67], [67, 92], [92, 123], [123, 169], [169, 250], [251, 396], [396, 2312]]
+        for i, interval in enumerate(split_interval):
+            if active >= split_interval[0] and active < split_interval[1]:
+                return i
+        return -1
+    
+    def user_mean_score_equal_interval_split(self, mean_score):
+        # 按照0.5分桶
+        return int(mean_score / 0.5)
+
 
     def __getitem__(self, index):
         userid, itemid, score, ts_now = self.all_data[index]
@@ -136,7 +150,22 @@ class SortModelDataLoader(Dataset):
         item_kind = self.get_item_kind(itemid)
 
         his_id, his_kind = self.get_user_his_list(userid, ts_now)
+
+        # {'active': 51, 
+        # 'mean_score': 4.176470588235294, 
+        # 'std_score': 0.45905420991926166, 
+        # 'like_kinds': [['Drama', 21], ["Children's", 18], ['Animation', 16]]}
+        user_fe = self.user_fe[userid]
+        user_act = self.user_fe['active']
+        user_act = self.user_actice_equal_frequence_split(user_act)
+        assert user_act >= 0
+
+        user_mean_score = self.user_fe['mean_score']
+        user_mean_score = self.user_mean_score_equal_interval_split(user_mean_score)
         
+        user_std_score = self.user_fe['std_score']
+        user_like_kinds = self.user_fe['like_kinds']
+        user_like_kinds = [self.gene_dict[i[0]] for i in user_like_kinds]
         
         
         # if not self.one_hot:
@@ -154,6 +183,7 @@ class SortModelDataLoader(Dataset):
             'label_lower_3': torch.tensor([1 if score <= 3 else 0]),
             'label_4': torch.tensor([1 if score == 4 else 0]),
             'label_5': torch.tensor([1 if score == 5 else 0]),
+            'user_act'
         }
         # else:
         #     user_id_one_hot = torch.sparse_coo_tensor(torch.tensor([[int(userid) - 1]]), torch.tensor([1]), (self.user_num))
