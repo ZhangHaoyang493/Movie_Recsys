@@ -62,6 +62,36 @@ class DSSMDataLoader(Dataset):
     def __len__(self):
         return len(self.all_data) if self.data_type == 'in_batch' else len(self.pos_sample)
     
+    # 返回大于当前时间戳的第一个物品的索引
+    def binary_search_history(self, userid, ts_now):
+        readlist = self.user_pos_history[userid]
+        left = 0
+        right = len(readlist) - 1
+        ans_index = 0
+        while left <= right:
+            mid = (left + right) // 2
+            if readlist[mid][2] > ts_now:
+                right = mid - 1
+                ans_index = right + 1
+            elif readlist[mid][2] < ts_now:
+                left = mid + 1
+                ans_index = left
+            elif readlist[mid][2] == ts_now:
+                return mid
+        return ans_index
+        
+    
+    # 返回用户历史阅读列表
+    def get_user_his_list(self, userid, ts_now):
+        user_his_item_id = []
+        history_index = self.binary_search_history(userid, ts_now)
+        his_list = self.user_pos_history[userid][:history_index]
+        for his in his_list:
+            user_his_item_id.append(int(his[0]))
+        while len(user_his_item_id) < self.history_len:
+            user_his_item_id = [0] + user_his_item_id
+        return user_his_item_id
+    
     def in_batch_data(self, index):
         # user_info : '1': ['1', 'F', '1', '10', '48067']
         # movie_info: '1': ['1', 'Toy Story (1995)', ['Animation', "Children's", 'Comedy']]
@@ -91,7 +121,6 @@ class DSSMDataLoader(Dataset):
         userid, itemid = self.pos_sample[index]
         user_info = self.user_info[userid]
         # 对user的info进行数字化
-        # zip-code暂不知怎么处理
         user_info = torch.tensor([int(user_info[0]), 0 if user_info[1] == 'F' else 1, int(user_info[2]), int(user_info[3])])
         item_info = self.item_info[itemid]
         # item info数字化
