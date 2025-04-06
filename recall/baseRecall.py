@@ -1,10 +1,19 @@
 import pickle
 
 class BaseRecall():
+    """
+    所有的召回方法都会继承这个类，这个类主要包含一个评估召回层命中率的函数
+    """
+
     def __init__(self):
         pass
-
+    
+    # 对召回效果进行评估，基于命中率（Hit Rate）
     def eval(self, val_data_path, k=5):
+        """
+        val_data_path：验证数据的路径
+        k：对于每个用户召回多少条样本进行评估
+        """
         val_data = pickle.load(open(val_data_path, 'rb'))
         recall_res = {}
         recall_num = 0

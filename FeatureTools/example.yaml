@@ -1,0 +1,27 @@
+userid:  # 特征名
+  WhoseFeature: user # 谁的特征，user 或者 item
+  FeatureKind: kind # 特征类型，kind代表是一个单独的kind特征，还有kindarray，代表是kind特征的列表
+  KindNum: 10 # 这个特征有多少个取值，比如userid特征就是用户的数量，因为每个用户都有这么一个userid
+  KindDim: 16 # 特征最后的嵌入维度
+  Depend: 0 # 依赖于user feature的第几列特征，user特征默认从user对应的特征文件中获取值
+
+itemid:
+  WhoseFeature: item # 谁的特征，user 或者 item
+  FeatureKind: kind # 特征类型，kind代表是一个单独的kind特征，还有kindarray，代表是kind特征的列表
+  KindNum: 100 # 这个特征有多少个取值，比如userid特征就是用户的数量，因为每个用户都有这么一个userid
+  KindDim: 16 # 特征最后的嵌入维度
+  Depend: 0 # 依赖于user feature的第几列特征，user特征默认从user对应的特征文件中获取值
+
+userHisInfo:
+  WhoseFeature: user # 谁的特征，user 或者 item
+  FeatureKind: kindarray # 特征类型，kind代表是一个单独的kind特征，还有kindarray，代表是kind特征的列表
+  DependFeatureName: itemid # kindarray类型的特征可能依赖于另一个字段，比如用户item的阅读历史，每个元素是一个itemid，这个itemid的Embedding可能和itemid这个特征共用一个Embedding
+  PaddingDim: 5 # kindarray特征的padding长度
+  KindDim: 16 # 特征最后的嵌入维度
+  Depend: 1
+
+
+
+
+  
+  
