@@ -19,7 +19,7 @@ class ItemFeatureEngineering:
 
     
     def write_rating_dict(self):
-        with open('../data/ratings.dat', 'r') as f:
+        with open('../data/train_ratings.dat', 'r') as f:
             for line in f:
                 line = line.strip()
                 userid, movieid, score, timestamp = line.split('::')
