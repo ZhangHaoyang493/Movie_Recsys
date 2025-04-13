@@ -26,25 +26,25 @@ class BaseModel(nn.Module):
                 setattr(self, fea_name, nn.Embedding(int(fea_config['MaxIndex']), int(fea_config['Dim'])))
             self.user_fea_config_dict[fea_name] = fea_config
             self.fea_config_dict[fea_name] = fea_config
-            if 'PaddingDim' in fea_config:
-                self.user_fea_dim += fea_config['PaddingDim'] * fea_config['Dim']
-            else:
+            if fea_config['AggreateMethod'] in ['avgpooling', 'none']:
                 self.user_fea_dim += fea_config['Dim']
+            elif fea_config['AggreateMethod'] in ['padding']:
+                self.user_fea_dim += fea_config['PaddingDim'] * fea_config['Dim']
         
         for fea_name, fea_config in self.config['item_feature_config'].items():
             if 'DependEmbeddingTableName' not in fea_config:
                 setattr(self, fea_name, nn.Embedding(int(fea_config['MaxIndex']), int(fea_config['Dim'])))
             self.item_fea_config_dict[fea_name] = fea_config
             self.fea_config_dict[fea_name] = fea_config
-            if 'PaddingDim' in fea_config:
-                self.item_fea_dim += fea_config['PaddingDim'] * fea_config['Dim']
-            else:
-                self.item_fea_dim += fea_config['Dim']
+
+            if fea_config['AggreateMethod'] in ['avgpooling', 'none']:
+                self.user_fea_dim += fea_config['Dim']
+            elif fea_config['AggreateMethod'] in ['padding']:
+                self.user_fea_dim += fea_config['PaddingDim'] * fea_config['Dim']
     
     def get_data_embedding(self, data):
-        batch_size = data['label'].shape[0]
-        user_embedding_data = []
-        item_embedding_data = []
+        user_embedding_data = {}
+        item_embedding_data = {}
         for key in data:
             if key != 'label':
                 val, mask = data[key]
@@ -54,20 +54,22 @@ class BaseModel(nn.Module):
                     embedding_data = getattr(self, self.fea_config_dict[key]['DependEmbeddingTableName'])(val)
                 if mask is not None:
                     embedding_data = embedding_data * mask.view(-1, 1)
+                if self.fea_config_dict[key]['AggreateMethod'] == 'avgpooling':
+                    embedding_data = torch.mean(embedding_data, dim=0, keepdim=True)
                 if key in self.user_fea_config_dict:
-                    user_embedding_data.append(embedding_data)
+                    user_embedding_data[key] = embedding_data
                 else:
-                    item_embedding_data.append(embedding_data)
+                    item_embedding_data[key] = embedding_data
             else:
                 self.label = data[key]
-        return torch.concat(user_embedding_data, dim=0).view(batch_size, -1), torch.concat(item_embedding_data, dim=0).view(batch_size, -1), self.label
+        return user_embedding_data, item_embedding_data, self.label
 
 if __name__ == '__main__':
     dataloader = BaseDataloader('./example.yaml')
     data = dataloader[1]
     model = BaseModel('./example.yaml')
     u, i, l = model.get_data_embedding(data)
-    print(u.shape, i.shape, l)
+    print(u, i, l)
     
 
 

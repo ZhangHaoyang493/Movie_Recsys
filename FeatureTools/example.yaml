@@ -5,6 +5,7 @@ train_data_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/data/train_ratings.dat
 user_feature_config:
   userid:  # 特征名
     FeatureKind: kind # 特征类型，kind代表是一个单独的kind特征，还有kindarray，代表是kind特征的列表
+    AggreateMethod: none
     MaxIndex: 10000 # 这个特征有多少个取值，比如userid特征就是用户的数量，因为每个用户都有这么一个userid
     Dim: 16 # 特征最后的嵌入维度
     Depend: 0 # 依赖于user feature的第几列特征，user特征默认从user对应的特征文件中获取值
@@ -12,6 +13,7 @@ user_feature_config:
 
   userLikeMovieKind:
     FeatureKind: kindarray # 特征类型，kind代表是一个单独的kind特征，还有kindarray，代表是kind特征的列表
+    AggreateMethod: avgpooling  # 聚合方式，可以选择avgpooling和padding和none，如果选择avgpooling，那么下面的PaddingDim就不用了
     PaddingDim: 5 # kindarray特征的padding长度
     MaxIndex: 50
     Dim: 16 # 特征最后的嵌入维度
@@ -21,6 +23,7 @@ user_feature_config:
   
   userGender:
     FeatureKind: kind
+    AggreateMethod: none
     Depend: 1
     MaxIndex: 2
     Dim: 16
@@ -32,11 +35,9 @@ user_feature_config:
 item_feature_config:
   itemid:
     FeatureKind: kind # 特征类型，kind代表是一个单独的kind特征，还有kindarray，代表是kind特征的列表
+    AggreateMethod: none
     KindNum: 100 # 这个特征有多少个取值，比如userid特征就是用户的数量，因为每个用户都有这么一个userid
     Dim: 16 # 特征最后的嵌入维度
     Depend: 0 # 依赖于user feature的第几列特征，user特征默认从user对应的特征文件中获取值
     type: int
     MaxIndex: 10000
-
-  
-  
