@@ -48,14 +48,14 @@ class HashConfig:
 
 
 class BaseDataloader(Dataset):
-    def __init__(self, config_file):
+    def __init__(self, config_file, mode='train'):
         super().__init__()
 
         with open(config_file, 'r') as f:
             self.config = yaml.safe_load(f)
         # print(self.config)
         self.all_rating_data = []
-        with open(self.config['train_data_path'], 'r') as f:
+        with open(self.config['train_data_path'] if mode=='train' else self.config['test_data_path'], 'r') as f:
             for line in f:
                 line = line.strip()
                 userid, movieid, score, time = line.split('::')
@@ -102,15 +102,21 @@ class BaseDataloader(Dataset):
             return [self.type_convert(feas[fea_index], fea_config['type'], fea_config.get('hashDictName', None)), None]
         elif fea_kind == 'kindarray':
             kind_array = eval(feas[fea_index])
-            ret = []
-            mask = []
-            for k in kind_array:
-                ret.append(self.type_convert(k, fea_config['type'], fea_config.get('hashDictName', None)))
-                mask.append(torch.tensor([1]))
-            while len(ret) < int(fea_config['PaddingDim']):
-                ret.append(torch.tensor([0]))
-                mask.append(torch.tensor([0]))
-            return [torch.tensor(ret), torch.tensor(mask)]
+            if fea_config['AggreateMethod'] == 'padding':
+                ret = []
+                mask = []
+                for k in kind_array:
+                    ret.append(self.type_convert(k, fea_config['type'], fea_config.get('hashDictName', None)))
+                    mask.append(torch.tensor([1]))
+                while len(ret) < int(fea_config['PaddingDim']):
+                    ret.append(torch.tensor([0]))
+                    mask.append(torch.tensor([0]))
+                return [torch.tensor(ret), torch.tensor(mask)]
+            elif fea_config['AggreateMethod'] == 'avgpooling':
+                ret = []
+                for k in kind_array:
+                    ret.append(self.type_convert(k, fea_config['type'], fea_config.get('hashDictName', None)))
+                return [torch.tensor(ret), None]
     
     def __getitem__(self, index):
         data = {}
