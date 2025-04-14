@@ -6,7 +6,9 @@ import yaml
 from tqdm import tqdm
 import numpy as np
 import random
-from BaseDataLoader import BaseDataloader
+import sys
+sys.path.append('.')
+from .BaseDataLoader import BaseDataloader
 
 
 class BaseModel(nn.Module):
@@ -38,13 +40,14 @@ class BaseModel(nn.Module):
             self.fea_config_dict[fea_name] = fea_config
 
             if fea_config['AggreateMethod'] in ['avgpooling', 'none']:
-                self.user_fea_dim += fea_config['Dim']
+                self.item_fea_dim += fea_config['Dim']
             elif fea_config['AggreateMethod'] in ['padding']:
-                self.user_fea_dim += fea_config['PaddingDim'] * fea_config['Dim']
+                self.item_fea_dim += fea_config['PaddingDim'] * fea_config['Dim']
     
     def get_data_embedding(self, data):
         user_embedding_data = {}
         item_embedding_data = {}
+        label = None
         for key in data:
             if key != 'label':
                 val, mask = data[key]
@@ -52,7 +55,7 @@ class BaseModel(nn.Module):
                     embedding_data = getattr(self, key)(val)
                 else:
                     embedding_data = getattr(self, self.fea_config_dict[key]['DependEmbeddingTableName'])(val)
-                if mask is not None:
+                if self.fea_config_dict[key]['AggreateMethod'] == 'padding':
                     embedding_data = embedding_data * mask.view(-1, 1)
                 if self.fea_config_dict[key]['AggreateMethod'] == 'avgpooling':
                     embedding_data = torch.mean(embedding_data, dim=0, keepdim=True)
@@ -61,8 +64,18 @@ class BaseModel(nn.Module):
                 else:
                     item_embedding_data[key] = embedding_data
             else:
-                self.label = data[key]
-        return user_embedding_data, item_embedding_data, self.label
+                label = data[key]
+        return user_embedding_data, item_embedding_data, label
+
+    def load_model(self, model_path):
+        """
+        加载模型参数
+        :param model_path: 模型文件路径
+        """
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"模型文件 {model_path} 不存在")
+        self.load_state_dict(torch.load(model_path).state_dict())
+        print('Load model successfully!')
 
 if __name__ == '__main__':
     dataloader = BaseDataloader('./example.yaml')

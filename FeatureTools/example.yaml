@@ -1,6 +1,6 @@
-user_feature_file_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/data/user_feature.dat
-item_feature_file_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/data/item_feature.dat
-train_data_path: /Users/zhanghaoyang/Desktop/Movie_Recsys/data/train_ratings.dat
+user_feature_file_path: /data2/zhy/Movie_Recsys/data/user_feature.dat
+item_feature_file_path: /data2/zhy/Movie_Recsys/data/item_feature.dat
+train_data_path: /data2/zhy/Movie_Recsys/data/train_ratings.dat
 
 user_feature_config:
   userid:  # 特征名
