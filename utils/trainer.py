@@ -7,52 +7,64 @@ from tqdm import tqdm
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import roc_auc_score
-
+import yaml
+import sys
+sys.path.append('..')
+from FeatureTools.BaseDataLoader import get_dataloader
 
 class Trainer:
-    def __init__(self, model: nn.Module, model_name: str, log_dir: str=None):
+    def __init__(self, model_config_file, fea_config_file, model):
         super().__init__()
 
-        self.model = model
-        self.model_name = model_name
+        with open(model_config_file, 'r') as f:
+            self.config = yaml.safe_load(f)
+        self.fea_config_file = fea_config_file
 
-        if log_dir is not None:
-            if not os.path.exists(log_dir):
-                os.makedirs(log_dir)
+        self.model = model
+        self.model_name = self.config['model_name']
+
+        # Log地址
+        if 'log_dir' in self.config:
+            if not os.path.exists(self.config['log_dir']):
+                os.makedirs(self.config['log_dir'])
         else:
             if not os.path.exists('./log/'):
                 os.makedirs('./log/')
-        self.log_dir = log_dir if log_dir is not None else './log/'
+        self.log_dir = self.config['log_dir'] if 'log_dir' in self.config else './log/'
 
+        # 日志的writer
         self.writer = SummaryWriter(log_dir=self.log_dir)
         self.train_step = 0
 
-    def set_model(self, model: nn.Module):
-        self.model = model
+        self.set_config()
+        self.set_dataloader()
 
-    def set_config(self, epoch, lr, optimizer: str, dataloader, eval_dataloader,
-                   lr_schedule=None, lr_min=None, save_epoch: float=1.0, eval_epoch: float=1.0):
-        self.epoch = epoch
-        self.lr = lr
+
+    def set_dataloader(self, train_dataloader, test_dataloader):
+        self.dataloader = get_dataloader(self.fea_config_file, self.config['batch_size'], self.config['num_workers'], 'train')
+        self.eval_dataloader = get_dataloader(self.fea_config_file, 1, self.config['num_workers'], 'test')
+
+    def set_config(self):
+        self.epoch = int(self.config['epoch'])
+        self.lr = float(self.config['lr'])
         
-        assert optimizer in ['adam']
-        if optimizer == 'adam':
+        assert self.config['optimizer'] in ['adam']
+        if self.config['optimizer'] == 'adam':
             self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=1e-4)
         
+        # self.dataloader = dataLoader
+        # self.eval_dataloader = eval_dataloader
 
-        self.dataloader = dataloader
-        self.eval_dataloader = eval_dataloader
-
-        assert lr_schedule in [None, 'cosin']
-        if lr_schedule == 'cosin':
-            assert lr_min is not None
+        assert self.config['lr_schedule'] in [None, 'cosine']
+        if self.config['lr_schedule'] == 'cosine':
+            assert self.config['lr_min'] is not None
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                                 self.optimizer, 
                                 T_max=(len(self.dataloader)) * self.epoch, 
-                                eta_min=lr_min
+                                eta_min=self.config['lr_min']
                             )
-        self.save_step = int(len(dataloader) * save_epoch)
-        self.eval_step = int(len(dataloader) * eval_epoch)
+        self.save_step = int(len(self.dataloader) * self.config['save_epoch'])
+        self.eval_step = int(len(self.dataloader) * self.config['save_epoch'])
 
     def add_log(self, ret):
         for k in ret.keys():

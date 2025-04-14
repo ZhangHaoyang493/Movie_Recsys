@@ -1,0 +1,9 @@
+model_name: DSSM
+log_dir: /Users/zhanghaoyang/Desktop/Movie_Recsys/recall/DSSM/log
+save_epoch: 1.0
+lr: 1e-3
+lr_min: 1e-4
+le_schedule: cosine
+batch_size: 64
+epoch: 20
+optimizer: adam

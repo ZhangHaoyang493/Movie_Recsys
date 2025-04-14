@@ -5,6 +5,7 @@ from baseRecall import BaseRecallModel
 from utils.model_utils import *
 from utils.trainer import Trainer
 from FeatureTools.BaseDataLoader import BaseDataloader
+from utils.trainer import Trainer
 
 import torch.nn.functional as F
 
@@ -64,9 +65,19 @@ class DSSM(BaseRecallModel):
         loss = self.bce_loss(similar_degree, all_labels)
 
         return loss
+    
+    # 只用来推理
+    def get_user_emb(self, user_feature):
+        batch_size = 1
+        user_fea_embedding = torch.concat(list(user_feature.values()), dim=0).view(batch_size, -1)
+        with torch.no_grad():
+            user_emb = self.user_tower(user_fea_embedding)  # Bx16
+        return user_emb.detach().cpu().numpy()
 
 if __name__ == '__main__':
     model = DSSM('./feature_config.yaml', '../../data/test_ratings.dat')
+    trainer = Trainer('./model_config.yaml', './feature_config.yaml')
+    trainer.train()
 
 
 

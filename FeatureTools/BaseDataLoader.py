@@ -134,6 +134,13 @@ class BaseDataloader(Dataset):
 
 
 
+def get_dataloader(fea_config_file, batch_size: int=1, num_workers:int = 4, type: str='train'):
+    dataset = BaseDataloader(fea_config_file)
+    if type == 'test':
+        return DataLoader(dataset, batch_size=1, shuffle=False, num_workers=num_workers)
+    elif type == 'train':
+        return DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+
 if __name__ == '__main__':
     dataloader = BaseDataloader('./example.yaml')
     print(dataloader[1])
