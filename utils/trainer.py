@@ -36,13 +36,14 @@ class Trainer:
         self.writer = SummaryWriter(log_dir=self.log_dir)
         self.train_step = 0
 
-        self.set_config()
         self.set_dataloader()
+        self.set_config()
+        
 
 
-    def set_dataloader(self, train_dataloader, test_dataloader):
+    def set_dataloader(self):
         self.dataloader = get_dataloader(self.fea_config_file, self.config['batch_size'], self.config['num_workers'], 'train')
-        self.eval_dataloader = get_dataloader(self.fea_config_file, 1, self.config['num_workers'], 'test')
+        self.eval_dataloader = get_dataloader(self.fea_config_file, self.config['batch_size'], self.config['num_workers'], 'test')
 
     def set_config(self):
         self.epoch = int(self.config['epoch'])
@@ -61,7 +62,7 @@ class Trainer:
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                                 self.optimizer, 
                                 T_max=(len(self.dataloader)) * self.epoch, 
-                                eta_min=self.config['lr_min']
+                                eta_min=float(self.config['lr_min'])
                             )
         self.save_step = int(len(self.dataloader) * self.config['save_epoch'])
         self.eval_step = int(len(self.dataloader) * self.config['save_epoch'])
@@ -110,6 +111,12 @@ class Trainer:
                 logit, label = self.model.eval_(data)
             logits.append(logit)
             labels.append(label)
+        
+        logits = torch.concat(logits, dim=0).view(-1) # Nx1
+        labels = torch.concat(labels, dim=0).view(-1) # Nx1
+        logits = logits.detach().cpu().numpy()
+        labels = labels.detach().cpu().numpy()
+        
         eval_auc = roc_auc_score(labels, logits)
         self.add_log({'eval_AUC': eval_auc})
         print('Eval AUC:', eval_auc)

@@ -1,21 +1,23 @@
 import sys
-sys.path.append('..')
+sys.path.append('../../')
+sys.path.append('../')
 
 from baseRecall import BaseRecallModel
 from utils.model_utils import *
 from utils.trainer import Trainer
 from FeatureTools.BaseDataLoader import BaseDataloader
+from FeatureTools.BaseModel import BaseModel
 from utils.trainer import Trainer
 
 import torch.nn.functional as F
 
 
-class DSSM(BaseRecallModel):
-    def __init__(self, config_file, val_data_path):
-        super().__init__(config_file, val_data_path)
+class DSSM(BaseModel):
+    def __init__(self, config_file):
+        super().__init__(config_file)
 
-        user_dims = [self.user_fea_dim, 128, 64, 16]
-        item_dims = [self.item_fea_dim, 128, 54, 16]
+        user_dims = [self.user_fea_dim, 64, 32, 8]
+        item_dims = [self.item_fea_dim, 64, 32, 8]
         self.user_tower = fc_model(user_dims)
         self.item_tower = fc_model(item_dims)
 
@@ -60,23 +62,53 @@ class DSSM(BaseRecallModel):
 
         # 计算相似度
         similar_degree = torch.sum(normed_all_item_emb * normed_all_user_emb, dim=-1, keepdim=True)
+        similar_degree = torch.sigmoid(similar_degree)
 
         # 计算损失
         loss = self.bce_loss(similar_degree, all_labels)
 
-        return loss
+        return {'loss': loss}
     
-    # 只用来推理
-    def get_user_emb(self, user_feature):
+    def eval_(self, data):
+        user_feature, item_feature, label = self.get_data_embedding(data)
+
+        batch_size = label.shape[0]
+        user_fea_embedding = torch.concat(list(user_feature.values()), dim=0).view(batch_size, -1)
+        item_fea_embedding = torch.concat(list(item_feature.values()), dim=0).view(batch_size, -1)
+
+        # 用户塔和物料塔前向推理
+        with torch.no_grad():
+            user_emb = self.user_tower(user_fea_embedding)  # Bx16
+            item_emb = self.item_tower(item_fea_embedding)  # Bx16
+            normed_all_item_emb = F.normalize(user_emb, p=2, dim=1)
+            normed_all_user_emb = F.normalize(item_emb, p=2, dim=1)
+            similar_degree = torch.sum(normed_all_item_emb * normed_all_user_emb, dim=-1, keepdim=True)
+            similar_degree = torch.sigmoid(similar_degree)
+        return similar_degree, label
+
+    # 只用来推理，获取用户的embedding
+    def get_user_emb(self, user_data):
         batch_size = 1
+        user_feature, _, _ = self.get_data_embedding(user_data)
         user_fea_embedding = torch.concat(list(user_feature.values()), dim=0).view(batch_size, -1)
         with torch.no_grad():
             user_emb = self.user_tower(user_fea_embedding)  # Bx16
-        return user_emb.detach().cpu().numpy()
+            user_emb = F.normalize(user_emb, p=2, dim=1)
+        return user_emb.view(-1).detach().cpu().numpy()
+
+    # 获取item的embedding
+    def get_item_emb(self, item_data):
+        batch_size = 1
+        _, item_feature, _ = self.get_data_embedding(item_data)
+        item_fea_embedding = torch.concat(list(item_feature.values()), dim=0).view(batch_size, -1)
+        with torch.no_grad():
+            item_emb = self.item_tower(item_fea_embedding)  # Bx16
+            item_emb = F.normalize(item_emb, p=2, dim=1)
+        return item_emb.view(-1).detach().cpu().numpy()
 
 if __name__ == '__main__':
-    model = DSSM('./feature_config.yaml', '../../data/test_ratings.dat')
-    trainer = Trainer('./model_config.yaml', './feature_config.yaml')
+    model = DSSM('./feature_config.yaml')
+    trainer = Trainer('./model_config.yaml', './feature_config.yaml', model)
     trainer.train()
 
 

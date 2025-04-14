@@ -99,7 +99,7 @@ class BaseDataloader(Dataset):
     def load_feature(self, feas, fea_index, fea_config: dict):
         fea_kind = fea_config['FeatureKind']
         if fea_kind == 'kind':
-            return [self.type_convert(feas[fea_index], fea_config['type'], fea_config.get('hashDictName', None)), None]
+            return [self.type_convert(feas[fea_index], fea_config['type'], fea_config.get('hashDictName', None)), torch.tensor([-1])]
         elif fea_kind == 'kindarray':
             kind_array = eval(feas[fea_index])
             if fea_config['AggreateMethod'] == 'padding':
@@ -116,7 +116,7 @@ class BaseDataloader(Dataset):
                 ret = []
                 for k in kind_array:
                     ret.append(self.type_convert(k, fea_config['type'], fea_config.get('hashDictName', None)))
-                return [torch.tensor(ret), None]
+                return [torch.tensor(ret), torch.tensor([-1])]
     
     def __getitem__(self, index):
         data = {}
@@ -132,13 +132,53 @@ class BaseDataloader(Dataset):
         data['label'] = torch.tensor([1]) if float(score) >= 4 else torch.tensor([0])
         return data
 
+# 这个dataloader会读取所有item的特征，用于双塔模型训练好之后存储所有的item向量用
+class ItemFeatureDataloader(BaseDataloader):
+    def __init__(self, config_file):
+        super().__init__(config_file)
+
+        self.item_data = list(self.item_feature.values())
+
+    def __len__(self):
+        return len(self.item_data)
+    
+    def __getitem__(self, index):
+        movieid = self.item_data[index][0]
+        data = {}
+        for fea_name, fea_config in self.config['item_feature_config'].items():
+            fea_index = int(fea_config['Depend'])
+            fea = self.load_feature(self.item_feature[movieid], fea_index, fea_config)
+            data[fea_name] = fea
+        return data
+
+class UserItemFeatureReader(BaseDataloader):
+    def __init__(self, config_file):
+        super().__init__(config_file)
+    
+    def get_user_feature(self, userid):
+        data = {}
+        for fea_name, fea_config in self.config['user_feature_config'].items():
+            fea_index = int(fea_config['Depend'])
+            fea = self.load_feature(self.user_feature[userid], fea_index, fea_config)
+            data[fea_name] = fea
+        return data
+    
+    def get_item_feature(self, itemid):
+        data = {}
+        for fea_name, fea_config in self.config['item_feature_config'].items():
+            fea_index = int(fea_config['Depend'])
+            fea = self.load_feature(self.item_feature[itemid], fea_index, fea_config)
+            data[fea_name] = fea
+        return data
 
 
 def get_dataloader(fea_config_file, batch_size: int=1, num_workers:int = 4, type: str='train'):
-    dataset = BaseDataloader(fea_config_file)
+    dataset = BaseDataloader(fea_config_file, mode=type) if type in ['test', 'train'] else ItemFeatureDataloader(fea_config_file)
     if type == 'test':
-        return DataLoader(dataset, batch_size=1, shuffle=False, num_workers=num_workers)
+        return DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     elif type == 'train':
+        return DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    elif type == 'only_item':
         return DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 
 if __name__ == '__main__':
