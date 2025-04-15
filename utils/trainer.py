@@ -11,6 +11,34 @@ import yaml
 import sys
 sys.path.append('..')
 from FeatureTools.BaseDataLoader import get_dataloader
+import logging
+
+class Logger:
+    def get_logger(self, log_path):
+        logger = logging.getLogger("my_logger")
+        logger.setLevel(logging.DEBUG)
+
+        # 创建一个控制台 handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+
+        # 创建一个文件 handler
+        file_handler = logging.FileHandler(log_path, encoding="utf-8")
+        file_handler.setLevel(logging.DEBUG)
+
+        # 创建 formatter 并添加到 handler
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        console_handler.setFormatter(formatter)
+        file_handler.setFormatter(formatter)
+
+        # 添加 handler 到 logger
+        logger.addHandler(console_handler)
+        logger.addHandler(file_handler)
+
+        return logger
+
+
+    
 
 class Trainer:
     def __init__(self, model_config_file, fea_config_file, model):
@@ -33,12 +61,13 @@ class Trainer:
         self.log_dir = self.config['log_dir'] if 'log_dir' in self.config else './log/'
 
         # 日志的writer
-        self.writer = SummaryWriter(log_dir=self.log_dir)
+        # self.writer = SummaryWriter(log_dir=self.log_dir)
         self.train_step = 0
 
         self.set_dataloader()
         self.set_config()
-        
+
+        self.logger = Logger().get_logger('./train.log')
 
 
     def set_dataloader(self):
@@ -67,9 +96,15 @@ class Trainer:
         self.save_step = int(len(self.dataloader) * self.config['save_epoch'])
         self.eval_step = int(len(self.dataloader) * self.config['save_epoch'])
 
-    def add_log(self, ret):
-        for k in ret.keys():
-            self.writer.add_scalar(k, ret[k], self.train_step)
+        self.model_save_path = '.' if 'model_save_path' not in self.config else self.config['model_save_path']
+        if not os.path.exists(self.model_save_path):
+            os.makedirs(self.model_save_path)
+
+
+
+    # def add_log(self, ret):
+    #     for k in ret.keys():
+    #         self.writer.add_scalar(k, ret[k], self.train_step)
 
 
     def train(self):
@@ -95,11 +130,11 @@ class Trainer:
             # print('Epoch: %d, Loss: %.3f' % (epoch, loss_epoch / len(self.dataloader)))
 
                 if self.train_step != 0 and self.train_step % self.save_step == 0:
-                    torch.save(self.model, './%s_epoch_%d.pth' % (self.model_name, self.train_step))
+                    torch.save(self.model, os.path.join(self.model_save_path, '%s_epoch_%d.pth' % (self.model_name, self.train_step)))
                 if self.train_step != 0 and self.train_step % self.eval_step == 0:
                     self.eval()
-        torch.save(self.model, './%s_final.pth' % self.model_name)
-        self.writer.close()
+        torch.save(self.model, os.path.join(self.model_save_path, '%s_final.pth' % self.model_name))
+        # self.writer.close()
 
     def eval(self):
         self.model.eval()
@@ -118,5 +153,6 @@ class Trainer:
         labels = labels.detach().cpu().numpy()
         
         eval_auc = roc_auc_score(labels, logits)
-        self.add_log({'eval_AUC': eval_auc})
-        print('Eval AUC:', eval_auc)
+        # self.add_log({'eval_AUC': eval_auc})
+        self.logger.info('Iterations: %d, AUC: %.5f' % (self.train_step, eval_auc))
+        # print('Eval AUC:', eval_auc)
