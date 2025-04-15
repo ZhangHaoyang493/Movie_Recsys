@@ -20,9 +20,6 @@ recall
 │   ├── DSSM_recall.py      # 基于已训练的 DSSM 模型进行向量相似度召回候选集
 │   ├── DSSM_train.py       # 使用双塔网络训练用户与物品的向量表示（embedding）
 │   └── dataloader.py       # 加载训练/测试数据、用户行为序列、物品特征等
-├── MF # 矩阵分解召回模型
-│   ├── MF_recall.py        # 使用训练好的 MF 模型进行用户-物品的召回推荐
-│   └── MF_train.py         # 使用评分矩阵进行 MF 模型训练，学习潜在因子向量
 ├── baseRecall.py           # 定义所有召回模型的抽象基类，包含统一的接口和结构
 ├── deepwalk_emb_recall # 基于DeepWalk的图嵌入召回
 │   ├── deepwalk_conf.yaml  # DeepWalk 配置文件，定义游走策略和嵌入维度等参数
@@ -49,6 +46,10 @@ recall
     + ✅ deepwalk方式
 + youtubeDNN：youtube提出的召回模型，目前正在开发...
 
+## 召回层模型性能分析
+|方法|HitRate@10|HitRate@20|HitRate@30|HitRate@40|HitRate@50|
+|--------|------|------|------------|----------|----------|
+|协同过滤（CF）|1.58%|3.30%|4.99%|6.68%|8.21%|
 # 精排层
 精排的模型实现在`sort`中，文件夹结构如下：
 ```python

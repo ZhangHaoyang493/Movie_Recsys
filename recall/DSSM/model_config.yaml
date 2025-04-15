@@ -5,6 +5,8 @@ lr: 1e-4
 lr_min: 1e-5
 lr_schedule: cosine
 batch_size: 256
-epoch: 5
+epoch: 10
 optimizer: adam
 num_workers: 4
+model_save_path: /data2/zhy/Movie_Recsys/recall/DSSM/model
+dims: [64, 32, 8]

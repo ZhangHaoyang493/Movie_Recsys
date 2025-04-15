@@ -11,13 +11,19 @@ from utils.trainer import Trainer
 
 import torch.nn.functional as F
 
+import yaml
+
 
 class DSSM(BaseModel):
-    def __init__(self, config_file):
+    def __init__(self, config_file, model_config_file):
         super().__init__(config_file)
 
-        user_dims = [self.user_fea_dim, 64, 32, 8]
-        item_dims = [self.item_fea_dim, 64, 32, 8]
+        with open(model_config_file, 'r') as f:
+            self.model_config = yaml.safe_load(f)
+
+        # print(self.model_config['dims'])
+        user_dims = [self.user_fea_dim] + eval(str(self.model_config['dims']))
+        item_dims = [self.item_fea_dim] + eval(str(self.model_config['dims']))
         self.user_tower = fc_model(user_dims)
         self.item_tower = fc_model(item_dims)
 
@@ -43,7 +49,7 @@ class DSSM(BaseModel):
         negative_user_emb = []
         for i in range(self.random_negative_sample_ratio):
             indices = torch.randperm(batch_size)
-            negative_sample_emb.append(item_fea_embedding[indices])
+            negative_sample_emb.append(self.item_tower(item_fea_embedding[indices]))
             negative_user_emb.append(user_emb)
             negative_labels.append(torch.zeros(size=(batch_size, 1)))
         negative_sample_emb = torch.concat(negative_sample_emb, dim=0) # (self.random_negative_sample_ratio*B)x16
@@ -107,7 +113,7 @@ class DSSM(BaseModel):
         return item_emb.view(-1).detach().cpu().numpy()
 
 if __name__ == '__main__':
-    model = DSSM('./feature_config.yaml')
+    model = DSSM('./feature_config.yaml', './model_config.yaml')
     trainer = Trainer('./model_config.yaml', './feature_config.yaml', model)
     trainer.train()
 
