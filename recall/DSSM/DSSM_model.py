@@ -36,7 +36,7 @@ class DSSM(BaseModel):
         user_feature, item_feature, label = self.get_data_embedding(data)
 
         batch_size = label.shape[0]
-        user_fea_embedding = torch.concat(list(user_feature.values()), dim=0).view(batch_size, -1)
+        user_fea_embedding = torch.concat(list(user_feature.values()), dim=-1).view(batch_size, -1)
         item_fea_embedding = torch.concat(list(item_feature.values()), dim=0).view(batch_size, -1)
 
         # 用户塔和物料塔前向推理
@@ -49,7 +49,7 @@ class DSSM(BaseModel):
         negative_user_emb = []
         for i in range(self.random_negative_sample_ratio):
             indices = torch.randperm(batch_size)
-            negative_sample_emb.append(self.item_tower(item_fea_embedding[indices]))
+            negative_sample_emb.append(item_emb[indices])
             negative_user_emb.append(user_emb)
             negative_labels.append(torch.zeros(size=(batch_size, 1)))
         negative_sample_emb = torch.concat(negative_sample_emb, dim=0) # (self.random_negative_sample_ratio*B)x16
@@ -79,7 +79,7 @@ class DSSM(BaseModel):
         user_feature, item_feature, label = self.get_data_embedding(data)
 
         batch_size = label.shape[0]
-        user_fea_embedding = torch.concat(list(user_feature.values()), dim=0).view(batch_size, -1)
+        user_fea_embedding = torch.concat(list(user_feature.values()), dim=-1).view(batch_size, -1)
         item_fea_embedding = torch.concat(list(item_feature.values()), dim=0).view(batch_size, -1)
 
         # 用户塔和物料塔前向推理
@@ -96,7 +96,7 @@ class DSSM(BaseModel):
     def get_user_emb(self, user_data):
         batch_size = 1
         user_feature, _, _ = self.get_data_embedding(user_data)
-        user_fea_embedding = torch.concat(list(user_feature.values()), dim=0).view(batch_size, -1)
+        user_fea_embedding = torch.concat(list(user_feature.values()), dim=-1).view(batch_size, -1)
         with torch.no_grad():
             user_emb = self.user_tower(user_fea_embedding)  # Bx16
             user_emb = F.normalize(user_emb, p=2, dim=1)

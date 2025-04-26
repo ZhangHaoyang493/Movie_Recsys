@@ -14,7 +14,7 @@ user_feature_config:
   userLikeMovieKind:
     FeatureKind: kindarray # 特征类型，kind代表是一个单独的kind特征，还有kindarray，代表是kind特征的列表
     AggreateMethod: avgpooling  # 聚合方式，可以选择avgpooling和padding和none，如果选择avgpooling，那么下面的PaddingDim就不用了
-    PaddingDim: 5 # kindarray特征的padding长度
+    PaddingDim: 5 # kindarray特征的padding长度，AggreateMethod方式不管指定为avgpooling还是padding都需要指定这个参数
     MaxIndex: 50
     Dim: 16 # 特征最后的嵌入维度
     Depend: 6

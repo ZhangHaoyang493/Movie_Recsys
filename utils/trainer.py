@@ -12,6 +12,8 @@ import sys
 sys.path.append('..')
 from FeatureTools.BaseDataLoader import get_dataloader
 import logging
+import datetime
+
 
 class Logger:
     def get_logger(self, log_path):
@@ -67,7 +69,12 @@ class Trainer:
         self.set_dataloader()
         self.set_config()
 
-        self.logger = Logger().get_logger('./train.log')
+
+        # 获取当前时间
+        now = datetime.datetime.now()
+        # 格式化时间    
+        formatted_time = now.strftime("%Y_%m_%d_%Hh%Mm%Ss")
+        self.logger = Logger().get_logger('./train_%s.log' % formatted_time)
 
 
     def set_dataloader(self):
@@ -116,7 +123,7 @@ class Trainer:
             for data in tqdm_bar:
                 self.optimizer.zero_grad()
                 ret = self.model(data)
-                self.add_log(ret)
+                # self.add_log(ret)
 
                 ret['loss'].backward()
                 self.optimizer.step()

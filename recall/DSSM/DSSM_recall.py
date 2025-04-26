@@ -56,7 +56,7 @@ class DSSMRecall(BaseRecallModel):
     
 if __name__ == '__main__':
     dssm_recall = DSSMRecall('./feature_config.yaml', 
-                             './model/DSSM_epoch_7424.pth', 
+                             './model/DSSM_epoch_11136.pth', 
                              '../../data/test_ratings.dat', 
                              './model_config.yaml',
                              '../../data/item_feature.dat')
