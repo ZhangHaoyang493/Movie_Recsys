@@ -12,6 +12,33 @@ user_feature_config:
     Depend: 0 # 依赖于user feature的第几列特征，user特征默认从user对应的特征文件中获取值
     type: int
 
+  gender:
+    FeatureKind: kind
+    AggreateMethod: none
+    MaxIndex: 3
+    Dim: 8
+    Depend: 1
+    type: str
+    hashDictName: gender_hash
+
+  age:
+    FeatureKind: kind
+    AggreateMethod: none
+    MaxIndex: 10
+    Dim: 8
+    Depend: 2
+    type: str
+    hashDictName: age_hash
+
+  userLikeMovieKind:
+    FeatureKind: kindarray # 特征类型，kind代表是一个单独的kind特征，还有kindarray，代表是kind特征的列表
+    AggreateMethod: avgpooling  # 聚合方式，可以选择avgpooling和padding和none，如果选择avgpooling，那么下面的PaddingDim就不用了
+    PaddingDim: 5 # kindarray特征的padding长度
+    MaxIndex: 50
+    Dim: 16 # 特征最后的嵌入维度
+    Depend: 6
+    type: str
+    hashDictName: movie_genres_hash
 
 item_feature_config:
   itemid:
@@ -22,3 +49,15 @@ item_feature_config:
     Depend: 0 # 依赖于user feature的第几列特征，user特征默认从user对应的特征文件中获取值
     type: int
     MaxIndex: 10000
+
+  movieKind:  
+    FeatureKind: kindarray # 特征类型，kind代表是一个单独的kind特征，还有kindarray，代表是kind特征的列表
+    AggreateMethod: avgpooling  # 聚合方式，可以选择avgpooling和padding和none，如果选择avgpooling，那么下面的PaddingDim就不用了
+    PaddingDim: 5 # kindarray特征的padding长度
+    MaxIndex: 50
+    Dim: 16 # 特征最后的嵌入维度
+    Depend: 3
+    type: str
+    hashDictName: movie_genres_hash
+    DependEmbeddingTableName: userLikeMovieKind
+    

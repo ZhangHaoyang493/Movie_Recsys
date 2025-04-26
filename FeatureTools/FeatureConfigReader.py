@@ -31,13 +31,13 @@ class HashConfig:
         }
 
         self.age_hash = {
-            1: 0,
-            18: 1,
-            25: 2,
-            35: 3,
-            45: 4,
-            50: 5,
-            56: 6
+            '1': 0,
+            '18': 1,
+            '25': 2,
+            '35': 3,
+            '45': 4,
+            '50': 5,
+            '56': 6
         }
 
         self.gender_hash = {
@@ -78,7 +78,7 @@ class FeatureConfigReader(Dataset):
             return torch.tensor([int(fea)])
         elif type_ == 'float':
             return torch.tensor([float(fea)])
-        elif type_ == 'str':
+        elif type_ == 'str':   # 如果是string类型的特征输入，需要指定将string转为int的dict
             assert hashDictName is not None
             return torch.tensor([int(getattr(self.hash_config, hashDictName)[str(fea)])])
     
@@ -89,21 +89,24 @@ class FeatureConfigReader(Dataset):
             return [self.type_convert(feas[fea_index], fea_config['type'], fea_config.get('hashDictName', None)), torch.tensor([-1])]
         elif fea_kind == 'kindarray':
             kind_array = eval(feas[fea_index])
-            if fea_config['AggreateMethod'] == 'padding':
-                ret = []
-                mask = []
-                for k in kind_array:
-                    ret.append(self.type_convert(k, fea_config['type'], fea_config.get('hashDictName', None)))
-                    mask.append(torch.tensor([1]))
-                while len(ret) < int(fea_config['PaddingDim']):
-                    ret.append(torch.tensor([0]))
-                    mask.append(torch.tensor([0]))
-                return [torch.tensor(ret), torch.tensor(mask)]
-            elif fea_config['AggreateMethod'] == 'avgpooling':
-                ret = []
-                for k in kind_array:
-                    ret.append(self.type_convert(k, fea_config['type'], fea_config.get('hashDictName', None)))
-                return [torch.tensor(ret), torch.tensor([-1])]
+            # if fea_config['AggreateMethod'] == 'padding':
+            ret = []
+            mask = []
+            for k in kind_array:
+                if len(ret) >= int(fea_config['PaddingDim']):  # ret的长度大于int(fea_config['PaddingDim'])的话，就break掉
+                    break
+                ret.append(self.type_convert(k, fea_config['type'], fea_config.get('hashDictName', None)))
+                mask.append(torch.tensor([1]))
+            while len(ret) < int(fea_config['PaddingDim']):
+                ret.append(torch.tensor([0]))
+                mask.append(torch.tensor([0]))
+            
+            return [torch.tensor(ret), torch.tensor(mask)]
+            # elif fea_config['AggreateMethod'] == 'avgpooling':
+            #     ret = []
+            #     for k in kind_array:
+            #         ret.append(self.type_convert(k, fea_config['type'], fea_config.get('hashDictName', None)))
+            #     return [torch.tensor(ret), torch.tensor([-1])]
 
 
 class UserItemFeatureReader(FeatureConfigReader):

@@ -1,0 +1,4 @@
+# FeatureTools
+这个文件夹中的py文件实现了特征读取框架
+
+关于feature_config的解析以及特征的读取过程都在FeatureConfigReader.py中进行了实现，如果需要加新的特征读取规则，请修改这个文件

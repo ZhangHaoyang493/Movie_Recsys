@@ -50,15 +50,21 @@ class BaseModel(nn.Module):
         label = None
         for key in data:
             if key != 'label':
-                val, mask = data[key]
+                val, mask = data[key] # mask: bx1xpaddingDim
+
                 if 'DependEmbeddingTableName' not in self.fea_config_dict[key]:
                     embedding_data = getattr(self, key)(val)
                 else:
                     embedding_data = getattr(self, self.fea_config_dict[key]['DependEmbeddingTableName'])(val)
+                # embedding_data: bxpaddingDimxdim
+                _, paddingDim, _ = embedding_data.shape
                 if self.fea_config_dict[key]['AggreateMethod'] == 'padding':
-                    embedding_data = embedding_data * mask.view(-1, 1)
+                    embedding_data = embedding_data * mask.view(-1, paddingDim, 1)
                 if self.fea_config_dict[key]['AggreateMethod'] == 'avgpooling':
-                    embedding_data = torch.mean(embedding_data, dim=0, keepdim=True)
+                    # embedding_data = torch.mean(embedding_data, dim=0, keepdim=True)
+                    embedding_data = embedding_data * mask.view(-1, paddingDim, 1)
+                    embedding_data = torch.sum(embedding_data, dim=1, keepdim=True) # bx1xdim
+                    embedding_data = embedding_data / torch.sum(mask, dim=-1, keepdim=True).unsqueeze(-1)
                 if key in self.user_fea_config_dict:
                     user_embedding_data[key] = embedding_data
                 else:
