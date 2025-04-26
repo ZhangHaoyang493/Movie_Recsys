@@ -15,14 +15,17 @@ class BaseRecallModel:
 
         # key是userid，value是平分正向的物料的id
         self.val_data_dict = {}
+        val_data_num = 0
         with open(val_data_path, 'r') as f:
             for line in f:
+                val_data_num += 1
                 line = line.strip()
                 userid, movieid, score, time = line.split('::')
                 if userid not in self.val_data_dict:
                     self.val_data_dict[userid] = []
                 if float(score) >= 4:
                     self.val_data_dict[userid].append(movieid)
+        print('Val Data Number: %d' % val_data_num)
         self.featureReader = None
         if config_file is not None:
             self.featureReader = UserItemFeatureReader(config_file)

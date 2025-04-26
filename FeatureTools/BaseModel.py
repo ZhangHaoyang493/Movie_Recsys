@@ -57,6 +57,8 @@ class BaseModel(nn.Module):
                 else:
                     embedding_data = getattr(self, self.fea_config_dict[key]['DependEmbeddingTableName'])(val)
                 # embedding_data: bxpaddingDimxdim
+                if len(embedding_data.shape) == 2:
+                    embedding_data = embedding_data.unsqueeze(0)
                 _, paddingDim, _ = embedding_data.shape
                 if self.fea_config_dict[key]['AggreateMethod'] == 'padding':
                     embedding_data = embedding_data * mask.view(-1, paddingDim, 1)
