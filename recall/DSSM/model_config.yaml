@@ -1,8 +1,8 @@
 model_name: DSSM
 log_dir: /data2/zhy/Movie_Recsys/recall/DSSM/log
 save_epoch: 0.5
-lr: 1e-4
-lr_min: 1e-5
+lr: 1e-3
+lr_min: 1e-4
 lr_schedule: cosine
 batch_size: 256
 epoch: 10
