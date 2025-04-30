@@ -72,12 +72,22 @@ class FeatureConfigReader(Dataset):
 
         self.hash_config = HashConfig()
 
-    def type_convert(self, fea, type_, hashDictName=None):
+    def bucketize(self, float_fea, bucket_bounds):
+        for i, bound in enumerate(bucket_bounds):
+            if float_fea < bound:
+                return i
+        return len(bucket_bounds)
+
+    def type_convert(self, fea, type_, hashDictName=None, bucket_bounds=None):
         assert type_ in ['int', 'float', 'str']
         if type_ == 'int':
             return torch.tensor([int(fea)])
         elif type_ == 'float':
-            return torch.tensor([float(fea)])
+            float_fea = float(fea)
+            if bucket_bounds:
+                assert len(bucket_bounds) > 0
+                return torch.tensor([int(self.bucketize(float_fea, bucket_bounds))])
+            return torch.tensor([float_fea])
         elif type_ == 'str':   # 如果是string类型的特征输入，需要指定将string转为int的dict
             assert hashDictName is not None
             return torch.tensor([int(getattr(self.hash_config, hashDictName)[str(fea)])])
@@ -100,8 +110,13 @@ class FeatureConfigReader(Dataset):
             while len(ret) < int(fea_config['PaddingDim']):
                 ret.append(torch.tensor([0]))
                 mask.append(torch.tensor([0]))
-            
+        
             return [torch.tensor(ret), torch.tensor(mask)]
+        elif fea_kind == 'number':
+            return [self.type_convert(feas[fea_index], 'float'), torch.tensor([-1])]
+        elif fea_kind == 'number_bucket':
+            assert 'BucketBounds' in fea_config
+            return [self.type_convert(feas[fea_index], 'float', bucket_bounds=eval(fea_config.get('BucketBounds', None))), torch.tensor([-1])]
             # elif fea_config['AggreateMethod'] == 'avgpooling':
             #     ret = []
             #     for k in kind_array:

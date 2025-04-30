@@ -23,7 +23,16 @@ class BaseModel(nn.Module):
         self.user_fea_dim = 0
         self.item_fea_dim = 0
 
+        fea_name_set = set()
+
         for fea_name, fea_config in self.config['user_feature_config'].items():
+            # 判断fea name是否定义重复
+            assert fea_name not in fea_name_set, 'The name of your feature is duplicated.'
+            fea_name_set.add(fea_name)
+
+            if fea_config['FeatureKind'] == 'number':
+                continue
+
             if 'DependEmbeddingTableName' not in fea_config:
                 setattr(self, fea_name, nn.Embedding(int(fea_config['MaxIndex']), int(fea_config['Dim'])))
             self.user_fea_config_dict[fea_name] = fea_config
@@ -34,6 +43,13 @@ class BaseModel(nn.Module):
                 self.user_fea_dim += fea_config['PaddingDim'] * fea_config['Dim']
         
         for fea_name, fea_config in self.config['item_feature_config'].items():
+            # 判断fea name是否定义重复
+            assert fea_name not in fea_name_set, 'The name of your feature is duplicated.'
+            fea_name_set.add(fea_name)
+            
+            if fea_config['FeatureKind'] == 'number':
+                continue
+
             if 'DependEmbeddingTableName' not in fea_config:
                 setattr(self, fea_name, nn.Embedding(int(fea_config['MaxIndex']), int(fea_config['Dim'])))
             self.item_fea_config_dict[fea_name] = fea_config
@@ -47,10 +63,15 @@ class BaseModel(nn.Module):
     def get_data_embedding(self, data):
         user_embedding_data = {}
         item_embedding_data = {}
+        number_data = {}
         label = None
         for key in data:
             if key != 'label':
                 val, mask = data[key] # mask: bx1xpaddingDim
+
+                if self.fea_config_dict[key]['FeatureKind'] == 'number':
+                    number_data[key] = data
+                    continue
 
                 if 'DependEmbeddingTableName' not in self.fea_config_dict[key]:
                     embedding_data = getattr(self, key)(val)

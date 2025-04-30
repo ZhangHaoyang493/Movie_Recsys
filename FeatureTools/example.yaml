@@ -30,6 +30,18 @@ user_feature_config:
     type: str
     hashDictName: gender_hash
     DependEmbeddingTableName: itemid  # 这个特征如果和某个特征共享一个Embedding表，就指出这个特征的名字
+  
+  user_score_avg:
+    FeatureKind: number
+    Depend: 2
+
+  user_score_avg_bucket:
+    FeatureKind: number_bucket
+    Depend: 2
+    BucketBounds: [1, 1.2, 1.4, 1.8]
+    AggreateMethod: none
+    MaxIndex: 10000 # 这个特征有多少个取值，比如userid特征就是用户的数量，因为每个用户都有这么一个userid
+    Dim: 16 # 特征最后的嵌入维度
 
 
 item_feature_config:
