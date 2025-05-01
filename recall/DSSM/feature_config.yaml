@@ -35,7 +35,7 @@ user_feature_config:
     AggreateMethod: avgpooling  # 聚合方式，可以选择avgpooling和padding和none，如果选择avgpooling，那么下面的PaddingDim就不用了
     PaddingDim: 5 # kindarray特征的padding长度
     MaxIndex: 50
-    Dim: 16 # 特征最后的嵌入维度
+    Dim: 8 # 特征最后的嵌入维度
     Depend: 6
     type: str
     hashDictName: movie_genres_hash
@@ -55,7 +55,7 @@ item_feature_config:
     AggreateMethod: avgpooling  # 聚合方式，可以选择avgpooling和padding和none，如果选择avgpooling，那么下面的PaddingDim就不用了
     PaddingDim: 5 # kindarray特征的padding长度
     MaxIndex: 50
-    Dim: 16 # 特征最后的嵌入维度
+    Dim: 8 # 特征最后的嵌入维度
     Depend: 3
     type: str
     hashDictName: movie_genres_hash

@@ -14,7 +14,7 @@ import torch.nn.functional as F
 import yaml
 
 
-class DSSM(BaseModel):
+class YoutubeDNN(BaseModel):
     def __init__(self, config_file, model_config_file):
         super().__init__(config_file)
 
@@ -25,12 +25,12 @@ class DSSM(BaseModel):
         user_dims = [self.user_fea_dim] + eval(str(self.model_config['dims']))
         item_dims = [self.item_fea_dim] + eval(str(self.model_config['dims']))
         self.user_tower = fc_model(user_dims)
-        self.item_tower = fc_model(item_dims)
+        # self.item_tower = fc_model(item_dims)
 
 
         self.random_negative_sample_ratio = 1
 
-        self.bce_loss = nn.BCELoss()
+        # self.bce_loss = nn.BCELoss()
 
     def forward(self, data):
         user_feature, item_feature, user_number_feature, item_number_feature, label = self.get_data_embedding(data)
@@ -39,6 +39,15 @@ class DSSM(BaseModel):
         user_fea_embedding = torch.concat(list(user_feature.values()), dim=-1).view(batch_size, -1)
         item_fea_embedding = torch.concat(list(item_feature.values()), dim=-1).view(batch_size, -1)
 
+        # 将数值特征处理后concat到user_fea_embedding后面
+        user_data_fea_embedding = []
+        for k in user_number_feature.keys():
+            number_data_ = user_number_feature[k] # 获取当前的number类特征
+            user_data_fea_embedding.append([number_data_, torch.sqrt(number_data_), torch.pow(number_data_, 2)]) # 根据youtubeDNN的论文，x,sqrt(x),x^2作为特征输入
+        user_data_fea_embedding = torch.concat(user_data_fea_embedding, dim=-1) # bxdim
+        user_fea_embedding = torch.concat([user_fea_embedding, user_data_fea_embedding], dim=-1)
+
+        ########################### 以下代码还没有进行改造 2025.05.02 ###########################
         # 用户塔和物料塔前向推理
         user_emb = self.user_tower(user_fea_embedding)  # Bx16
         item_emb = self.item_tower(item_fea_embedding)  # Bx16

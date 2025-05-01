@@ -37,6 +37,7 @@ class BaseModel(nn.Module):
                 setattr(self, fea_name, nn.Embedding(int(fea_config['MaxIndex']), int(fea_config['Dim'])))
             self.user_fea_config_dict[fea_name] = fea_config
             self.fea_config_dict[fea_name] = fea_config
+
             if fea_config['AggreateMethod'] in ['avgpooling', 'none']:
                 self.user_fea_dim += fea_config['Dim']
             elif fea_config['AggreateMethod'] in ['padding']:
@@ -59,18 +60,29 @@ class BaseModel(nn.Module):
                 self.item_fea_dim += fea_config['Dim']
             elif fea_config['AggreateMethod'] in ['padding']:
                 self.item_fea_dim += fea_config['PaddingDim'] * fea_config['Dim']
+
+        # 额外检查一下那些有DependEmbeddingTableName字段的特征的Dim是否和DependEmbeddingTableName字段的特征Dim相等
+        for fea_k in self.fea_config_dict:
+            fea_config = self.fea_config_dict[fea_k]
+            if 'DependEmbeddingTableName' in fea_config:
+                assert fea_config['Dim'] == self.fea_config_dict[fea_config['DependEmbeddingTableName']]['Dim'], \
+                    'The dim of feature %s must equal to its DependEmbeddingTableName feature %s' % (fea_k, fea_config['DependEmbeddingTableName'])
     
     def get_data_embedding(self, data):
         user_embedding_data = {}
         item_embedding_data = {}
-        number_data = {}
+        user_number_data = {}
+        item_number_data = {}
         label = None
         for key in data:
             if key != 'label':
                 val, mask = data[key] # mask: bx1xpaddingDim
 
                 if self.fea_config_dict[key]['FeatureKind'] == 'number':
-                    number_data[key] = data
+                    if key in self.user_fea_config_dict:
+                        user_number_data[key] = data
+                    else:
+                        item_number_data[key] = data
                     continue
 
                 if 'DependEmbeddingTableName' not in self.fea_config_dict[key]:
@@ -94,7 +106,7 @@ class BaseModel(nn.Module):
                     item_embedding_data[key] = embedding_data
             else:
                 label = data[key]
-        return user_embedding_data, item_embedding_data, label
+        return user_embedding_data, item_embedding_data, user_number_data, item_number_data, label
 
     def load_model(self, model_path):
         """
