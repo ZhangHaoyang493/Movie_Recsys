@@ -73,7 +73,7 @@ class Trainer:
         # 获取当前时间
         now = datetime.datetime.now()
         # 格式化时间    
-        formatted_time = now.strftime("%Y_%m_%d_%Hh%Mm%Ss")
+        formatted_time = now.strftime("%Y%m%d_%H:%M:%S")
         self.logger = Logger().get_logger('./train_%s.log' % formatted_time)
 
 

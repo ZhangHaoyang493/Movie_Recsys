@@ -13,10 +13,13 @@ class UserFeatureEngineering:
         self.write_movie_dict()
         self.write_rating_dict()
 
+        # 写入用户特征
         self.write_base_user_feature()
         self.write_user_avg_score()
         self.write_user_std_score()
         self.write_user_his_favourite_movie_kind()
+        self.write_user_read_history_5_itemid()
+        self.write_user_read_history_like_3_itemid()
     
     def write_rating_dict(self):
         with open('../data/train_ratings.dat', 'r') as f:
@@ -26,6 +29,7 @@ class UserFeatureEngineering:
                 if userid not in self.rating_dict:
                     self.rating_dict[userid] = []
                 self.rating_dict[userid].append([movieid, float(score), int(timestamp)])
+                self.rating_dict[userid] = sorted(self.rating_dict[userid], key=lambda x: x[-1]) # 将用户的打分历史按照timestamp从小到大排序
     
     def write_user_dict(self):
         with open('../data/users.dat', 'r') as f:
@@ -70,7 +74,7 @@ class UserFeatureEngineering:
             else:
                 self.user_feature_dict[userid].append(0.0)
 
-    # 获取用户最喜欢的前5个
+    # 获取用户最喜欢的前5个电影的类型
     def write_user_his_favourite_movie_kind(self):
         for userid in self.user_feature_dict:
             if userid in self.rating_dict:
@@ -92,6 +96,31 @@ class UserFeatureEngineering:
                 # 如果userid不曾出现在打分历史中，就把热度最高的三个类型给这个用户
                 self.user_feature_dict[userid].append(['Comedy', 'Drama', 'Action'])
     
+    # 用户最近的5个打分过的item id
+    def write_user_read_history_5_itemid(self):
+        for userid in self.user_feature_dict:
+            if userid in self.rating_dict:
+                read_history = self.rating_dict[userid][-5:]
+                read_history = [i[0] for i in read_history]
+                self.user_feature_dict[userid].append(read_history)
+            else:
+                self.user_feature_dict[userid].append([])
+
+    # 用户最近的3个打正分的item id
+    def write_user_read_history_like_3_itemid(self):
+        for userid in self.user_feature_dict:
+            if userid in self.rating_dict:
+                read_history = self.rating_dict[userid]
+                like_read_history = []
+                for i in range(len(read_history)):
+                    if read_history[i][1] >= 4.0:
+                        like_read_history.append(read_history[i][0])
+                like_read_history = like_read_history[-3:]
+                self.user_feature_dict[userid].append(like_read_history)
+            else:
+                self.user_feature_dict[userid].append([])
+
+
     def save_user_feature_to_csv(self, save_path):
         with open(save_path, 'w') as f:
             for userid in self.user_feature_dict:

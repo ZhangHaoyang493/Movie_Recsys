@@ -30,7 +30,7 @@ class YoutubeDNN(BaseModel):
 
         self.random_negative_sample_ratio = 1
 
-        # self.bce_loss = nn.BCELoss()
+        self.bce_loss = nn.BCELoss()
 
     def forward(self, data):
         user_feature, item_feature, user_number_feature, item_number_feature, label = self.get_data_embedding(data)
@@ -43,14 +43,14 @@ class YoutubeDNN(BaseModel):
         user_data_fea_embedding = []
         for k in user_number_feature.keys():
             number_data_ = user_number_feature[k] # 获取当前的number类特征
-            user_data_fea_embedding.append([number_data_, torch.sqrt(number_data_), torch.pow(number_data_, 2)]) # 根据youtubeDNN的论文，x,sqrt(x),x^2作为特征输入
+            user_data_fea_embedding.append(torch.concat([number_data_, torch.sqrt(number_data_), torch.pow(number_data_, 2)], dim=-1)) # 根据youtubeDNN的论文，x,sqrt(x),x^2作为特征输入
         user_data_fea_embedding = torch.concat(user_data_fea_embedding, dim=-1) # bxdim
         user_fea_embedding = torch.concat([user_fea_embedding, user_data_fea_embedding], dim=-1)
 
         ########################### 以下代码还没有进行改造 2025.05.02 ###########################
         # 用户塔和物料塔前向推理
         user_emb = self.user_tower(user_fea_embedding)  # Bx16
-        item_emb = self.item_tower(item_fea_embedding)  # Bx16
+        item_emb = item_fea_embedding #self.item_tower(item_fea_embedding)  # Bx16
         
         # 负采样
         negative_sample_emb = []
@@ -85,16 +85,24 @@ class YoutubeDNN(BaseModel):
         return {'loss': loss}
     
     def eval_(self, data):
-        user_feature, item_feature, label = self.get_data_embedding(data)
+        user_feature, item_feature, user_number_feature, item_number_feature, label = self.get_data_embedding(data)
 
         batch_size = label.shape[0]
         user_fea_embedding = torch.concat(list(user_feature.values()), dim=-1).view(batch_size, -1)
         item_fea_embedding = torch.concat(list(item_feature.values()), dim=0).view(batch_size, -1)
 
+        # 将数值特征处理后concat到user_fea_embedding后面
+        user_data_fea_embedding = []
+        for k in user_number_feature.keys():
+            number_data_ = user_number_feature[k] # 获取当前的number类特征
+            user_data_fea_embedding.append(torch.concat([number_data_, torch.sqrt(number_data_), torch.pow(number_data_, 2)], dim=-1)) # 根据youtubeDNN的论文，x,sqrt(x),x^2作为特征输入
+        user_data_fea_embedding = torch.concat(user_data_fea_embedding, dim=-1) # bxdim
+        user_fea_embedding = torch.concat([user_fea_embedding, user_data_fea_embedding], dim=-1)
+
         # 用户塔和物料塔前向推理
         with torch.no_grad():
             user_emb = self.user_tower(user_fea_embedding)  # Bx16
-            item_emb = self.item_tower(item_fea_embedding)  # Bx16
+            item_emb = item_fea_embedding  # Bx16
             normed_all_item_emb = F.normalize(user_emb, p=2, dim=1)
             normed_all_user_emb = F.normalize(item_emb, p=2, dim=1)
             similar_degree = torch.sum(normed_all_item_emb * normed_all_user_emb, dim=-1, keepdim=True)
@@ -122,7 +130,7 @@ class YoutubeDNN(BaseModel):
         return item_emb.view(-1).detach().cpu().numpy()
 
 if __name__ == '__main__':
-    model = DSSM('./feature_config.yaml', './model_config.yaml')
+    model = YoutubeDNN('./feature_config.yaml', './model_config.yaml')
     trainer = Trainer('./model_config.yaml', './feature_config.yaml', model)
     trainer.train()
 
