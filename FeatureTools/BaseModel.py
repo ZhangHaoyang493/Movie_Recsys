@@ -30,13 +30,16 @@ class BaseModel(nn.Module):
             assert fea_name not in fea_name_set, 'The name of your feature is duplicated.'
             fea_name_set.add(fea_name)
 
+            self.user_fea_config_dict[fea_name] = fea_config
+            self.fea_config_dict[fea_name] = fea_config
+
             if fea_config['FeatureKind'] == 'number':
+                self.user_fea_dim += 3
                 continue
 
             if 'DependEmbeddingTableName' not in fea_config:
                 setattr(self, fea_name, nn.Embedding(int(fea_config['MaxIndex']), int(fea_config['Dim'])))
-            self.user_fea_config_dict[fea_name] = fea_config
-            self.fea_config_dict[fea_name] = fea_config
+            
 
             if fea_config['AggreateMethod'] in ['avgpooling', 'none']:
                 self.user_fea_dim += fea_config['Dim']
@@ -48,13 +51,16 @@ class BaseModel(nn.Module):
             assert fea_name not in fea_name_set, 'The name of your feature is duplicated.'
             fea_name_set.add(fea_name)
             
+            self.item_fea_config_dict[fea_name] = fea_config
+            self.fea_config_dict[fea_name] = fea_config
+
             if fea_config['FeatureKind'] == 'number':
+                self.user_fea_dim += 3
                 continue
 
             if 'DependEmbeddingTableName' not in fea_config:
                 setattr(self, fea_name, nn.Embedding(int(fea_config['MaxIndex']), int(fea_config['Dim'])))
-            self.item_fea_config_dict[fea_name] = fea_config
-            self.fea_config_dict[fea_name] = fea_config
+            
 
             if fea_config['AggreateMethod'] in ['avgpooling', 'none']:
                 self.item_fea_dim += fea_config['Dim']
@@ -80,9 +86,9 @@ class BaseModel(nn.Module):
 
                 if self.fea_config_dict[key]['FeatureKind'] == 'number':
                     if key in self.user_fea_config_dict:
-                        user_number_data[key] = data
+                        user_number_data[key] = val
                     else:
-                        item_number_data[key] = data
+                        item_number_data[key] = val
                     continue
 
                 if 'DependEmbeddingTableName' not in self.fea_config_dict[key]:
