@@ -5,26 +5,23 @@ import os
 import pyjson5 as json
 
 class FeatureExtractor():
-    def __init__(self, ratings_path: str, movie_path: str, user_path: str, output_path: str, slot_ids: list, share_slot_ids: dict, embedding_idx_dict_path: str = None):
+    def __init__(self, ratings_path: str, movie_path: str, user_path: str, out_basedir: str, slot_ids: list, share_slot_ids: dict, embedding_idx_dict_path: str = None):
         self.ratings_path = ratings_path
         self.movie_path = movie_path
         self.user_path = user_path
-        self.output_path = output_path
+        self.out_basedir = out_basedir
         self.share_slot_ids = share_slot_ids
 
-        if os.path.exists(self.output_path):
-            os.remove(self.output_path)
+        
 
         self.movie_data_dict = {}
         self.user_data_dict = {}
-        self.ratings_datas = []
 
         self.slot_ids = slot_ids
 
         # 读取电影的数据和用户的数据，评分数据
         self.movie_data_reader()
         self.user_data_reader()
-        self.ratings_data_reader()
 
         # 将slot id对应的特征值映射为embedding表的索引
         if embedding_idx_dict_path and os.path.exists(embedding_idx_dict_path):
@@ -32,9 +29,6 @@ class FeatureExtractor():
                 self.slot_id_embedding_idx_dict = json.load(f)
         else:
             self.slot_id_embedding_idx_dict = {slot_id: [{}, 0] for slot_id in self.slot_ids}
-
-        # 生成向output_path中写数据的句柄，需要不断的往文件最后面追加数据
-        self.output_file_f = open(self.output_path, 'a')
 
         self.initialization()  # 对一些定制化的slot id的特征提取函数进行初始化
 
@@ -75,8 +69,9 @@ class FeatureExtractor():
                 }
     
     # 读取ratings数据，1::1193::5::978300760
-    def ratings_data_reader(self):
-        with open(self.ratings_path, 'r', encoding='ISO-8859-1') as file:
+    def ratings_data_reader(self, rating_path):
+        self.ratings_datas = []  # [[user_id, movie_id, rating, timestamp], ...]
+        with open(rating_path, 'r', encoding='ISO-8859-1') as file:
             for line in tqdm(file, desc="Reading ratings data"):
                 user_id, movie_id, rating, timestamp = line.strip().split('::')
                 self.ratings_datas.append([user_id, movie_id, float(rating), int(timestamp)])
@@ -86,37 +81,46 @@ class FeatureExtractor():
 
     # 调用各个特征提取函数来提取特征
     def feature_extractor(self):
-        # 遍历ratings的每一行数据，获取对应的ratings数据、movie数据、user数据
-        for rating in tqdm(self.ratings_datas, desc="Extracting features"):
-            self.extracted_feature = {}  # slot_id: feature_hash_value
-            self.label = rating[2]  # 评分作为标签
+        for rating_path in self.ratings_path:
+            self.ratings_data_reader(rating_path)
 
-            # 获取对应的movie数据和user数据
-            user_id, movie_id = rating[0], rating[1]
-            movie_info = self.movie_data_dict.get(movie_id, {})
-            user_info = self.user_data_dict.get(user_id, {})
-            # 构造一个包含rating, movie_info, user_info的字典
-            data_line = {
-                'rating': rating,
-                'movie_info': movie_info,
-                'user_info': user_info
-            }
+            output_file_name = os.path.basename(rating_path).split('.')[0] + '_features.txt'
+            # 如果output_file_name已经存在，则删除
+            if os.path.exists(os.path.join(self.out_basedir, output_file_name)):
+                os.remove(os.path.join(self.out_basedir, output_file_name))
 
-            # 依次调用每个slot id对应的特征提取函数
-            for slot_id in self.slot_ids:
-                func_name = f"feature_extractor_{slot_id}"
-                func = getattr(self, func_name)
-                func(data_line)
+            # 以追加的方式打开output_path文件
+            self.output_file_f = open(os.path.join(self.out_basedir, output_file_name), 'a')
+            # 遍历ratings的每一行数据，获取对应的ratings数据、movie数据、user数据
+            for rating in tqdm(self.ratings_datas, desc="Extracting features"):
+                self.extracted_feature = {}  # slot_id: feature_hash_value
+                self.label = rating[2]  # 评分作为标签
 
-            # 将提取到的特征和标签写入到output_path中，格式为 slot_id:feature_hash_value slot_id:feature_hash_value ... \t label
-            feature_line = ' '.join([f"{slot_id}:{hash_value}" for slot_id, hash_value in self.extracted_feature.items()])
-            self.output_file_f.write(f"{feature_line}\t{self.label}\n")
-        
-        # 存储slot_id_embedding_idx_dict到当前目录
-        with open('embedding_idx_dict.json', 'w') as f:
+                # 获取对应的movie数据和user数据
+                user_id, movie_id = rating[0], rating[1]
+                movie_info = self.movie_data_dict.get(movie_id, {})
+                user_info = self.user_data_dict.get(user_id, {})
+                # 构造一个包含rating, movie_info, user_info的字典
+                data_line = {
+                    'rating': rating,
+                    'movie_info': movie_info,
+                    'user_info': user_info
+                }
+
+                # 依次调用每个slot id对应的特征提取函数
+                for slot_id in self.slot_ids:
+                    func_name = f"feature_extractor_{slot_id}"
+                    func = getattr(self, func_name)
+                    func(data_line)
+
+                # 将提取到的特征和标签写入到output_path中，格式为 slot_id:feature_hash_value slot_id:feature_hash_value ... \t label
+                feature_line = ' '.join([f"{slot_id}:{hash_value}" for slot_id, hash_value in self.extracted_feature.items()])
+                self.output_file_f.write(f"{feature_line}\t{self.label}\n")
+
+            self.output_file_f.close()
+        # 存储slot_id_embedding_idx_dict到json文件中
+        with open(os.path.join(self.out_basedir, 'embedding_idx_dict.json'), 'w') as f:
             json.dump(self.slot_id_embedding_idx_dict, f)
-
-        self.output_file_f.close()
 
     # 获取slot id对应的特征的真实值对应的embedding表的索引
     def get_feature_embedding_idx(self, slot_id, feature_value):

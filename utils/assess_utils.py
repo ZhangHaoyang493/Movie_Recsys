@@ -18,7 +18,7 @@ class AccessTools:
         if pos_num == 0 or neg_num == 0:
             return 0.0
         
-        # 专为python的list
+        # 转换为python的list，方便后续处理
         logits = logits.detach().cpu().numpy().tolist()
         labels = labels.detach().cpu().numpy().tolist()
 
@@ -37,3 +37,22 @@ class AccessTools:
                 pos_neg_pair_num += neg_num_now
 
         return pos_neg_pair_num / (pos_num * neg_num)
+
+    def RegAUC(self, predict: torch.Tensor, labels: torch.Tensor):
+        pass
+
+    def MSE(self, predict: torch.Tensor, labels: torch.Tensor):
+        predict = predict.view(-1)
+        labels = labels.view(-1)
+        assert predict.shape == labels.shape
+
+        return torch.mean((predict - labels) ** 2).item()
+    
+    def MAE(self, predict: torch.Tensor, labels: torch.Tensor):
+        predict = predict.view(-1)
+        labels = labels.view(-1)
+        assert predict.shape == labels.shape
+
+        return torch.mean(torch.abs(predict - labels)).item()
+    
+    

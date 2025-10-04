@@ -14,11 +14,9 @@ class DataGenerator():
         self.movie_path = config.get('movies_path')
         self.user_path = config.get('users_path')
         self.slot_ids = config.get('slot_ids')
-        self.output_path = config.get('out_feature_file_path')
+        self.out_basedir = config.get('out_basedir')
         self.share_slot_ids = config.get('share_slot_ids', {})
 
-        if not all([self.ratings_path, self.movie_path, self.user_path, self.slot_ids, self.output_path]):
-            raise ValueError("One or more required configuration parameters are missing")
         
         # 获取feature_extractor_path中FeatureExtractor类的所有函数名称
         function_names = self.get_feature_extractor_functions(config)
@@ -35,7 +33,7 @@ class DataGenerator():
             ratings_path=self.ratings_path,
             movie_path=self.movie_path,
             user_path=self.user_path,
-            output_path=self.output_path,
+            out_basedir=self.out_basedir,
             slot_ids=self.slot_ids,
             share_slot_ids=self.share_slot_ids
         )

@@ -1,9 +1,13 @@
 {
-  "ratings_path": "/Users/zhanghaoyang/Desktop/Movie_Recsys/MovieLens_1M_data/train_ratings.dat",
+  "ratings_path": [
+    "/Users/zhanghaoyang/Desktop/Movie_Recsys/MovieLens_1M_data/train_ratings.dat",
+    "/Users/zhanghaoyang/Desktop/Movie_Recsys/MovieLens_1M_data/test_ratings.dat"
+  ],
+  "test_ratings_path": "/Users/zhanghaoyang/Desktop/Movie_Recsys/MovieLens_1M_data/test_ratings.dat",
   "movies_path": "/Users/zhanghaoyang/Desktop/Movie_Recsys/MovieLens_1M_data/movies.dat",
   "users_path": "/Users/zhanghaoyang/Desktop/Movie_Recsys/MovieLens_1M_data/users.dat",
   "feature_extractor_path": "/Users/zhanghaoyang/Desktop/Movie_Recsys/FeaturesGenerator/feature_extractor.py",
-  "out_feature_file_path": "/Users/zhanghaoyang/Desktop/Movie_Recsys/FeaturesGenerator/train_data.txt",
+  "out_basedir": "/Users/zhanghaoyang/Desktop/Movie_Recsys/FeatureFiles",
   "data_path": "/Users/zhanghaoyang/Desktop/Movie_Recsys/FeaturesGenerator/train_data.txt",
   "embedding_idx_dict_path": null,
   "slot_ids": [
