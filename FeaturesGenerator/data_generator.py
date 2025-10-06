@@ -10,13 +10,7 @@ class DataGenerator():
             config = json.load(f)
 
         # 从配置文件中获取各个路径和slot_ids
-        self.ratings_path = config.get('ratings_path')
-        self.movie_path = config.get('movies_path')
-        self.user_path = config.get('users_path')
         self.slot_ids = config.get('slot_ids')
-        self.out_basedir = config.get('out_basedir')
-        self.share_slot_ids = config.get('share_slot_ids', {})
-
         
         # 获取feature_extractor_path中FeatureExtractor类的所有函数名称
         function_names = self.get_feature_extractor_functions(config)
@@ -29,14 +23,7 @@ class DataGenerator():
         spec = importlib.util.spec_from_file_location("feature_extractor", feature_extractor_path)
         feature_extractor_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(feature_extractor_module)
-        self.feature_extractor = feature_extractor_module.FeatureExtractor(
-            ratings_path=self.ratings_path,
-            movie_path=self.movie_path,
-            user_path=self.user_path,
-            out_basedir=self.out_basedir,
-            slot_ids=self.slot_ids,
-            share_slot_ids=self.share_slot_ids
-        )
+        self.feature_extractor = feature_extractor_module.FeatureExtractor(config)
 
         # 写出数据
         self.feature_extractor.feature_extractor()
