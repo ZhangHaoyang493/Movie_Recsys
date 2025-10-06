@@ -5,19 +5,19 @@ import os
 import pyjson5 as json
 
 class FeatureExtractor():
-    def __init__(self, ratings_path: str, movie_path: str, user_path: str, out_basedir: str, slot_ids: list, share_slot_ids: dict, embedding_idx_dict_path: str = None):
-        self.ratings_path = ratings_path
-        self.movie_path = movie_path
-        self.user_path = user_path
-        self.out_basedir = out_basedir
-        self.share_slot_ids = share_slot_ids
-
+    def __init__(self, config: dict):
+        self.ratings_path = config.get('ratings_path')
+        self.movie_path = config.get('movies_path')
+        self.user_path = config.get('users_path')
+        self.out_basedir = config.get('out_basedir')
+        self.share_slot_ids = config.get('share_slot_ids')
+        self.slot_ids = config.get('slot_ids')
+        embedding_idx_dict_path = config.get('embedding_idx_dict_path', None)
         
 
         self.movie_data_dict = {}
         self.user_data_dict = {}
 
-        self.slot_ids = slot_ids
 
         # 读取电影的数据和用户的数据，评分数据
         self.movie_data_reader()
