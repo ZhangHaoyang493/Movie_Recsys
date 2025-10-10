@@ -8,7 +8,7 @@
 
 
 
-# 📈数据集介绍
+## 📈数据集介绍
 MovieLens数据集1M（https://grouplens.org/datasets/movielens/）
 
 该数据集包含大约6000个用户对4000部左右的电影的100万条评分数据。每条评分数据包含用户ID、电影ID、评分（1-5分）和时间戳。此外，数据集中还包含电影的元信息，如标题、类型等，以及用户的元信息，如年龄、性别、职业等。
@@ -23,7 +23,18 @@ MovieLens数据集1M（https://grouplens.org/datasets/movielens/）
 
 数据集保存在该项目的MovieLens_1M_data文件夹中。
 
-# 特征框架
+## 怎么理解数据集
+
+
+## 特征框架
+
+## 召回层
+### Baseline：基于物品的协同过滤（ItemCF）
+
+ItemCF的各个版本的HitRate@50表现如下：
+|文件路径|改进点|HitRate@50|
+|-------|-------|------|
+|`recall/ItemCF/itemCF_base.py`|最简单的ItemCF|14.9418%|
 
 
 # 项目介绍
