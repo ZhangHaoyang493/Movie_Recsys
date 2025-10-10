@@ -10,5 +10,8 @@ class BaseRecall(L.LightningModule):
         super(BaseRecall, self).__init__()
         with open(config_path, 'r') as f:
             self.config = json.load(f)
-    
-    def 
+
+    def recall_topk(self, k: int, user_ids: torch.Tensor):
+        pass
+
+    def hit_rate(self, )
