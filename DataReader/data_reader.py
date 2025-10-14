@@ -17,6 +17,7 @@ class DataReader(Dataset):
         self.sparse_slots = config.get('sparse_slots', None)
         self.dense_slots = config.get('dense_slots', None)
         self.array_slots = config.get('array_slots', None)
+        self.stage = config.get('stage', None)  # 默认为recall阶段
         self.data_path = feature_file_path
         self.array_max_length = config.get('array_max_length', {})
 
@@ -29,14 +30,19 @@ class DataReader(Dataset):
         with open(self.data_path, 'r') as f:
             self.data_lines = f.readlines()
             self.data_lines = [line.strip() for line in self.data_lines]
+
+        self.data_lines = [list(line.split('\t')) for line in self.data_lines if line.strip()]
+        if self.stage == 'recall':
+            # recall阶段只保留正样本
+            self.data_lines = [line for line in self.data_lines if float(line[1]) >= 4.0]
+
     
     def __len__(self):
         return len(self.data_lines)
     
     def __getitem__(self, idx):
-        line = self.data_lines[idx]
+        feature_part, label_part = self.data_lines[idx]
         # 解析每一行数据，格式为 slot_id:feature_hash_value slot_id:feature_hash_value ... \t label
-        feature_part, label_part = line.split('\t')
         feature_items = feature_part.split(' ')
         
         ret_datas = {}
@@ -82,7 +88,7 @@ class DataReader(Dataset):
 
 
 if __name__ == "__main__":
-    data_reader = DataReader('/Users/zhanghaoyang/Desktop/Movie_Recsys/feature.json', '/Users/zhanghaoyang/Desktop/Movie_Recsys/FeatureFiles/train_ratings_features.txt')
+    data_reader = DataReader('/data2/zhy/Movie_Recsys/feature.json', '/data2/zhy/Movie_Recsys/FeatureFiles/train_ratings_features.txt')
     dataloader = DataLoader(data_reader, batch_size=8, shuffle=True)
     for batch in dataloader:
         for key, value in batch.items():

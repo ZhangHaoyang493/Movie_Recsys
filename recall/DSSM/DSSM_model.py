@@ -1,10 +1,11 @@
 import sys
-sys.path.append('/Users/zhanghaoyang/Desktop/Movie_Recsys/')
+sys.path.append('/data2/zhy/Movie_Recsys/')
 
 from BaseModel.base_model import BaseModel
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import faiss
 
 # BaseModel继承于LightningModule
 class DSSM(BaseModel):
@@ -60,13 +61,21 @@ class DSSM(BaseModel):
 
 
     def validation_step(self, batch, batch_idx):
-        user_emb, item_emb, neg_item_emb = self.forward(batch)
+        user_vector = self.get_user_embedding(batch)  # 获取用户特征向量
+        item_vector = self.get_item_embedding(batch)  # 获取物品特征向量
+        
+        user_emb = self.user_fc(user_vector)  # 用户特征通过全连接层  bx16
+        item_emb = self.item_fc(item_vector)  # 物品特征通过全连接层  bx16
 
-        # 计算三元组损失
-        loss = self.triplet_loss(user_emb, item_emb, neg_item_emb)
+        # 归一化
+        user_emb = F.normalize(user_emb, p=2, dim=1)
+        item_emb = F.normalize(item_emb, p=2, dim=1)
 
-        self.log('val_loss', loss)
-        return loss
+        # 计算正样本的相似度
+        pos_scores = torch.sum(user_emb * item_emb, dim=1).mean()
+
+        self.log('val_pos_scores', pos_scores.item())
+        return pos_scores
 
     def test_step(self, batch, batch_idx):
         pass
@@ -108,3 +117,6 @@ class DSSM(BaseModel):
                 item_embeddings.append(emb)
         item_feature_vector = torch.cat(item_embeddings, dim=1)  # 在特征维度上拼接
         return item_feature_vector
+    
+    def hit_rate(self):
+        pass

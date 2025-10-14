@@ -1,14 +1,14 @@
 {
   "ratings_path": [
-    "/Users/zhanghaoyang/Desktop/Movie_Recsys/MovieLens_1M_data/train_ratings.dat",
-    "/Users/zhanghaoyang/Desktop/Movie_Recsys/MovieLens_1M_data/test_ratings.dat"
+    "/data2/zhy/Movie_Recsys/MovieLens_1M_data/train_ratings.dat",
+    "/data2/zhy/Movie_Recsys/MovieLens_1M_data/test_ratings.dat"
   ],
-  "test_ratings_path": "/Users/zhanghaoyang/Desktop/Movie_Recsys/MovieLens_1M_data/test_ratings.dat",
-  "movies_path": "/Users/zhanghaoyang/Desktop/Movie_Recsys/MovieLens_1M_data/movies.dat",
-  "users_path": "/Users/zhanghaoyang/Desktop/Movie_Recsys/MovieLens_1M_data/users.dat",
-  "feature_extractor_path": "/Users/zhanghaoyang/Desktop/Movie_Recsys/FeaturesGenerator/feature_extractor.py",
-  "out_basedir": "/Users/zhanghaoyang/Desktop/Movie_Recsys/FeatureFiles",
-  "data_path": "/Users/zhanghaoyang/Desktop/Movie_Recsys/FeaturesGenerator/train_data.txt",
+  "test_ratings_path": "/data2/zhy/Movie_Recsys/MovieLens_1M_data/test_ratings.dat",
+  "movies_path": "/data2/zhy/Movie_Recsys/MovieLens_1M_data/movies.dat",
+  "users_path": "/data2/zhy/Movie_Recsys/MovieLens_1M_data/users.dat",
+  "feature_extractor_path": "/data2/zhy/Movie_Recsys/FeaturesGenerator/feature_extractor.py",
+  "out_basedir": "/data2/zhy/Movie_Recsys/FeatureFiles",
+  "data_path": "/data2/zhy/Movie_Recsys/FeaturesGenerator/train_data.txt",
   "embedding_idx_dict_path": null,
   "slot_ids": [
     1,  // 用户ID
@@ -39,5 +39,6 @@
   },
   "item_slots": [2, 3],
   "user_slots": [1, 4, 5, 6],
-  "dense_feature_dim": 1  // 考虑到对于数值特征的处理方式很多，比如直接输入、归一化、使用YoutubeDNN的数值处理方式等，这些方式对于一个dense特征来说，最终的维度可能不止1维，因此这里需要指定数值特征的最终维度
+  "dense_feature_dim": 1,  // 考虑到对于数值特征的处理方式很多，比如直接输入、归一化、使用YoutubeDNN的数值处理方式等，这些方式对于一个dense特征来说，最终的维度可能不止1维，因此这里需要指定数值特征的最终维度
+  "stage": "recall"  // 考虑到recall阶段和ranking阶段读取数据集的方式有所不同，recall阶段只读取正样本，而ranking阶段需要读取正负样本，因此这里需要指定当前的阶段
 }

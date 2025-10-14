@@ -6,7 +6,7 @@ from torch import nn
 from sklearn.metrics import roc_auc_score
 
 import sys
-sys.path.append('/Users/zhanghaoyang/Desktop/Movie_Recsys/sort')
+sys.path.append('/data2/zhy/Movie_Recsys/sort')
 from sortDataLoader import get_sort_dataloader
 from trainer import Trainer
 

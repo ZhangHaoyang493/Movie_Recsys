@@ -76,8 +76,8 @@ class BaseModel(L.LightningModule):
         pass
 
     def build_embedding_tables(self):
-        # 构建embedding表
-        self.embedding_tables = {}
+        # 构建embedding表,使用ModuleDict管理多个embedding表，这样可以方便地将它们注册为模型的子模块。直接使用字典的话会导致参数无法被正确注册和更新。
+        self.embedding_tables = nn.ModuleDict()
         # 处理稀疏类型的slot id
         for slot_id in self.sparse_slots:
             # 获取当前slot的embedding表大小和维度
@@ -91,7 +91,7 @@ class BaseModel(L.LightningModule):
                 raise ValueError(f"Embedding size for slot_id {slot_id} is not specified in the config file")
 
             # 创建当前slot id对应的embedding表
-            self.embedding_tables[slot_id] = nn.Embedding(table_size, embedding_size)
+            self.embedding_tables[str(slot_id)] = nn.Embedding(table_size, embedding_size)
 
         # 处理array类型的slot id
         for slot_id in self.array_slots:
@@ -114,7 +114,7 @@ class BaseModel(L.LightningModule):
                 raise ValueError(f"Embedding size for slot_id {emb_slot_id} is not specified in the config file")
 
             # 创建当前slot id对应的embedding表
-            self.embedding_tables[emb_slot_id] = nn.Embedding(table_size, embedding_size)
+            self.embedding_tables[str(emb_slot_id)] = nn.Embedding(table_size, embedding_size)
 
 
         # 获取slot id对应的embedding
@@ -125,9 +125,9 @@ class BaseModel(L.LightningModule):
         :param idx: 特征值对应的embedding索引
         :return: embedding向量
         """
-        if slot_id not in self.embedding_tables:
+        if str(slot_id) not in self.embedding_tables:
             raise ValueError(f"Embedding table for slot_id {slot_id} does not exist")
-        return self.embedding_tables[slot_id](idx)
+        return self.embedding_tables[str(slot_id)](idx)
 
 
     # def get_slots_feature(self, batch):
@@ -208,14 +208,14 @@ class BaseModel(L.LightningModule):
 
 if __name__ == "__main__":
     import sys
-    sys.path.append('/Users/zhanghaoyang/Desktop/Movie_Recsys')
+    sys.path.append('/data2/zhy/Movie_Recsys')
     from DataReader.data_reader import DataReader
     from torch.utils.data import DataLoader
 
-    data_reader = DataReader('/Users/zhanghaoyang/Desktop/Movie_Recsys/feature.json', '/Users/zhanghaoyang/Desktop/Movie_Recsys/FeatureFiles/train_ratings_features.txt')
+    data_reader = DataReader('/data2/zhy/Movie_Recsys/feature.json', '/data2/zhy/Movie_Recsys/FeatureFiles/train_ratings_features.txt')
     dataloader = DataLoader(data_reader, batch_size=8, shuffle=True)
 
-    model = BaseModel('/Users/zhanghaoyang/Desktop/Movie_Recsys/feature.json')
+    model = BaseModel('/data2/zhy/Movie_Recsys/feature.json')
     for batch in dataloader:
         model.get_slots_feature(batch)
         for slot_id, emb in model.slot_embeddings.items():
