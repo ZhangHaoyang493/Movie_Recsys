@@ -10,3 +10,7 @@ log
 *.log
 */**/*.pkl
 */*.pkl
+*/**/checkpoints
+*/**/lightning_logs
+*/lightning_logs
+lightning_logs

@@ -79,8 +79,8 @@ def hit_rate(test_file_path, user_item_history, item_similarity, k=10):
 
 if __name__ == "__main__":
     # 构建用户-物品交互历史
-    train_file_path = '/Users/zhanghaoyang/Desktop/Movie_Recsys/MovieLens_1M_data/train_ratings.dat'
-    test_file_path = '/Users/zhanghaoyang/Desktop/Movie_Recsys/MovieLens_1M_data/test_ratings.dat'
+    train_file_path = '/data2/zhy/Movie_Recsys/MovieLens_1M_data/train_ratings.dat'
+    test_file_path = '/data2/zhy/Movie_Recsys/MovieLens_1M_data/test_ratings.dat'
     user_item_history = build_user_item_history(train_file_path)
 
     # 计算物品相似度矩阵

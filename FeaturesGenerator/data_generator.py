@@ -61,5 +61,5 @@ class DataGenerator():
 
 # 示例用法
 if __name__ == "__main__":
-    config_path = "/Users/zhanghaoyang/Desktop/Movie_Recsys/feature.json"
+    config_path = "/data2/zhy/Movie_Recsys/feature.json"
     data_generator = DataGenerator(config_path)
