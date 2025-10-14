@@ -35,6 +35,8 @@ ItemCF的各个版本的HitRate@50表现如下：
 |文件路径|改进点|HitRate@50|
 |-------|-------|------|
 |`recall/ItemCF/itemCF_base.py`|最简单的ItemCF|14.9418%|
+|`recall/ItemCF/itemCF_version1.py`|引入评分权重，评分>=3.0的权重为1，评分<3.0的权重为0.5|15.8907%|
+|`recall/ItemCF/itemCF_version2.py`|更精细的评分权重，评分=5.0的权重为1，评分=4.0的权重为0.8，...，评分=1.0的权重为0.2|16.9662%|
 
 
 # 项目介绍
