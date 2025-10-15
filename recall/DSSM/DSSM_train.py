@@ -15,17 +15,23 @@ if __name__ == "__main__":
     train_feature_path = '/data2/zhy/Movie_Recsys/FeatureFiles/train_ratings_features.txt'
     # 验证数据路径
     val_feature_path = '/data2/zhy/Movie_Recsys/FeatureFiles/test_ratings_features.txt'
+    # 电影数据路径
+    movies_feature_path = "/data2/zhy/Movie_Recsys/FeatureFiles/movie_features.txt"
     
     # 初始化DataReader
     train_dataset = DataReader(config_path, train_feature_path)
     val_dataset = DataReader(config_path, val_feature_path)
+    # 构造movies的Dataloader
+    movies_dataset = DataReader(config_path, movies_feature_path)
+    
     
     # 创建DataLoader
     train_dataloader = DataLoader(train_dataset, batch_size=512, shuffle=True, num_workers=4)
-    val_dataloader = DataLoader(val_dataset, batch_size=256, shuffle=False, num_workers=4)
+    val_dataloader = DataLoader(val_dataset, batch_size=256, shuffle=False, num_workers=4, drop_last=False)
+    movies_dataloader = DataLoader(movies_dataset, batch_size=16, shuffle=False, num_workers=4, drop_last=False)
     
     # 初始化DSSM模型
-    model = DSSM(config_path)
+    model = DSSM(config_path, {'movies_dataloader': movies_dataloader, 'val_dataloader': val_dataloader})
     
     # 定义检查点回调，只保存模型，不做验证
     checkpoint_callback = L.pytorch.callbacks.ModelCheckpoint(
