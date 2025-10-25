@@ -14,3 +14,5 @@ log
 */**/lightning_logs
 */lightning_logs
 lightning_logs
+checkpoints
+*/checkpoints

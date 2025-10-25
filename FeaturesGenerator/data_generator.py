@@ -1,7 +1,7 @@
 import yaml
 import os
 import pyjson5 as json
-
+import argparse
 
 class DataGenerator():
     def __init__(self, config_path):
@@ -61,5 +61,10 @@ class DataGenerator():
 
 # 示例用法
 if __name__ == "__main__":
-    config_path = "/data2/zhy/Movie_Recsys/feature.json"
+    parser = argparse.ArgumentParser(description="Data Generator")
+    # 添加命令行参数，简写为-c
+    parser.add_argument('-c', '--config_path', type=str, required=True, help='Path to the config json file')
+    args = parser.parse_args()
+
+    config_path = args.config_path
     data_generator = DataGenerator(config_path)
