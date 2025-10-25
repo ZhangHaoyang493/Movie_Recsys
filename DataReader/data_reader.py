@@ -14,9 +14,9 @@ class DataReader(Dataset):
             config = json.load(f)
 
         # 从json文件中获取各个配置参数
-        self.sparse_slots = config.get('sparse_slots', None)
-        self.dense_slots = config.get('dense_slots', None)
-        self.array_slots = config.get('array_slots', None)
+        self.sparse_slots = config.get('sparse_slots', [])
+        self.dense_slots = config.get('dense_slots', [])
+        self.array_slots = config.get('array_slots', [])
         self.stage = config.get('stage', None)  # 默认为recall阶段
         self.data_path = feature_file_path
         self.array_max_length = config.get('array_max_length', {})
@@ -32,9 +32,9 @@ class DataReader(Dataset):
             self.data_lines = [line.strip() for line in self.data_lines]
 
         self.data_lines = [list(line.split('\t')) for line in self.data_lines if line.strip()]
-        if self.stage == 'recall':
-            # recall阶段只保留正样本
-            self.data_lines = [line for line in self.data_lines if float(line[1]) >= 4.0]
+        # if self.stage == 'recall':
+        #     # recall阶段只保留正样本，这里的-1是为了兼容movie dataset，movie dataset没有label，所以label统一设置为-1
+        #     self.data_lines = [line for line in self.data_lines if (float(line[1]) >= 4.0 or float(line[1]) == -1.0)]
 
     
     def __len__(self):
@@ -61,7 +61,7 @@ class DataReader(Dataset):
                 ret_datas[slot_id] = dense_val
             elif slot_id in self.array_slots:
                 # 数组特征，转换为embedding索引的列表
-                emb_indices = [int(i) for i in str(emb_idx).split(',')]  # 处理空字符串的情况
+                emb_indices = [int(i) for i in str(emb_idx).split(',')] if str(emb_idx) != '' else [] # 处理空字符串的情况
                 max_length = self.array_max_length.get(str(slot_id), None)
                 if max_length is None:
                     raise ValueError(f"Max length for array slot_id {slot_id} is not specified in the config file")
@@ -78,10 +78,12 @@ class DataReader(Dataset):
                 emb_indices = torch.tensor(emb_indices, dtype=torch.long)
                 ret_datas[slot_id] = emb_indices  # 堆叠为一个tensor
                 ret_datas[f"{slot_id}_mask"] = padding_mask  # 添加mask
-            else:
-                raise ValueError(f"Slot id {slot_id} not found in either sparse or dense slots or array slots")
+            # else:
+            #     raise ValueError(f"Slot id {slot_id} not found in either sparse or dense slots or array slots")
 
-        ret_datas['label'] = torch.tensor(float(label_part), dtype=torch.float32)
+        label_part = label_part.strip().split(' ')
+        # ret_datas['label'] = torch.tensor(float(label_part), dtype=torch.float32)
+        ret_datas['label'] = torch.tensor([float(l) for l in label_part], dtype=torch.float32)
 
         return ret_datas
 

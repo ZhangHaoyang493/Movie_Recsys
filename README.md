@@ -23,8 +23,80 @@ MovieLens数据集1M（https://grouplens.org/datasets/movielens/）
 
 数据集保存在该项目的MovieLens_1M_data文件夹中。
 
-## 怎么理解数据集
+### 关于MovieLens_1M_data文件夹内容介绍
 
+#### 基本文件
+|文件名|说明|
+|-------|-------|
+|ratings.dat|用户对电影的评分数据，格式为 user_id::movie_id::rating::timestamp|
+|movies.dat|电影的元信息，格式为 movie_id::title::genres|
+|users.dat|用户的元信息，格式为 user_id::age::gender::occupation::zip_code|
+|README.txt|数据集的说明文件|
+|train_test_split.ipynb|用于将原始数据集划分为训练集和测试集的Jupyter Notebook文件，划分思路为选定一个时间戳节点，然后将该时间戳之前的数据作为训练集，之后的数据作为测试集。|
+|train_ratings.dat|划分好的训练集的评分数据，格式同ratings.dat，包含用户对电影的评分数据。|
+|test_ratings.dat|划分好的测试集的评分数据，格式同ratings.dat，包含用户对电影的评分数据。|
+
+#### 使用LLM对数据集做了一些增强的相关文件
+##### movie_info_generation.py
+使用LLM，根据movies.dat中的电影标题，生成每部电影的简介、导演、主演等信息，LLM以json的格式返回，json的格式如下：
+```json
+{
+    "English_title": "电影英文名称",
+    "Chinese_title": "电影中文名称",
+    "Chinese_description": "电影中文简介",
+    "tags": ["标签1", "标签2"],
+    "director_chinese_name": "导演中文名称",
+    "direction_English_name": "导演英文名称",
+    "cast_English_name": ["主演英文名称1", "主演英文名称2"],
+    "cast_Chinese_name": ["主演中文名称1", "主演中文名称2"],
+    "country": "制片国家/地区",
+    "language": "语言",
+    "release_year": "上映时间",
+    "duration": "片长"
+}
+```
+
+##### movie_details.json
+使用movie_info_generation.py生成的电影详情信息，包含每部电影的简介、导演、主演等信息，存储为JSON格式的文件，方便后续使用。
+
+Example:
+```json
+{
+    "1": {
+        "1": {
+        "English_title": "Toy Story (1995)",
+        "Chinese_title": "玩具总动员",
+        "Chinese_description": "《玩具总动员》是一部由皮克斯动画工作室制作、迪士尼发行的动画电影，讲述了玩具们在主人离开后拥有的神奇生命。影片围绕小主人安迪最喜欢的牛仔胡迪展开，他原本是安迪最喜爱的玩具，但随着新玩具——一位太空骑警巴斯光年加入后，胡迪开始担心自己会被取代。在一次意外中，胡迪和巴斯光年被安迪的妹妹带离了家，他们必须携手合作，才能找回回家的路。途中，玩具们经历了各种冒险，彼此之间也逐渐建立了深厚的友谊。影片通过幽默和感人的情节，探讨了友情、忠诚和成长的主题。",
+        "tags": [
+            "动画",
+            "冒险",
+            "喜剧",
+            "家庭"
+        ],
+        "director_chinese_name": "约翰·拉塞特",
+        "direction_English_name": "John Lasseter",
+        "cast_English_name": [
+            "Tom Hanks",
+            "Tim Allen",
+            "Don Rickles",
+            "Jim Varney",
+            "Wallace Shawn"
+        ],
+        "cast_Chinese_name": [
+            "汤姆·汉克斯",
+            "提姆·艾伦",
+            "唐·里克斯",
+            "吉姆·瓦尼",
+            "沃尔特·肖恩"
+        ],
+        "country": "美国",
+        "language": "英语",
+        "release_year": "1995",
+        "duration": 81
+    },
+    ...
+}
+```
 
 ## 特征框架
 
