@@ -14,8 +14,12 @@ from model_utils.lr_schedule import CosinDecayLR
 
 # BaseModel继承于LightningModule
 class DSSM(BaseModel):
-    def __init__(self, config_path, dataloaders={}):
+    def __init__(self, config_path, dataloaders={}, hparams={}):
         super(DSSM, self).__init__(config_path)
+
+        # 保存超参数
+        self.save_hyperparameters(hparams)
+        self.hparams_ = hparams
         
         # 定义DSSM的网络结构
         # 假设我们有两个全连接层，分别用于用户和物品的特征处理
@@ -86,8 +90,8 @@ class DSSM(BaseModel):
         pass
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=3e-3, betas=(0.9, 0.999))
-        lr_scheduler = CosinDecayLR(optimizer, lrs=[3e-3, 1e-6], milestones=[60000, 200000])
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams_['lr'], betas=(0.9, 0.999))
+        lr_scheduler = CosinDecayLR(optimizer, lrs=[self.hparams_['lr'], self.hparams_['min_lr']], milestones=self.hparams_['lr_milestones'])
         return {
             'optimizer': optimizer,
             'lr_scheduler': {
@@ -135,7 +139,10 @@ class DSSM(BaseModel):
     @torch.no_grad()
     def hit_rate(self, k=10):
         hits_num = 0
+        all_nums = 0
         for batch in tqdm(self.val_dataloader_, desc="Evaluating Hit Rate", ncols=100):
+            labels = batch['label'][:, 1]  # 计算hit rate时只考虑正样本，这里获取到labels的值，后续用于过滤负样本
+
             for key in batch:
                 if isinstance(batch[key], torch.Tensor):
                     batch[key] = batch[key].to(self.device)
@@ -153,15 +160,17 @@ class DSSM(BaseModel):
             targets = batch[2].cpu().numpy()  # 假设item_id是物品的真实ID
             hits = 0
             for i in range(len(targets)):
-                if targets[i] in I[i]:
-                    hits_num += 1
-        hit_rate = hits_num / len(self.val_dataloader_.dataset)
+                if labels[i] == 1:  # 只计算正样本的命中率
+                    if targets[i] in I[i]:
+                        hits_num += 1
+                    all_nums += 1
+        hit_rate = (hits_num / all_nums) if all_nums > 0 else 0
         self.log('Hit_Rate_50', hit_rate)
         print(f"Hit Rate@{k}: {hit_rate}")
 
     @torch.no_grad()
     def on_train_epoch_end(self):
-        if self.current_epoch % 5 == 0:
+        if self.current_epoch % 1 == 0:
             all_item_embeddings = []
             self.idx_item_emb_dic = {}
             idx = 0
