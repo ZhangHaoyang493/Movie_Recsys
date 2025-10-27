@@ -12,8 +12,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="DSSM Training")
     parser.add_argument("--config", "-c", type=str, default="/data2/zhy/Movie_Recsys/feature.json", help="Path to config file")
     parser.add_argument("--lr", type=float, default=3e-3, help="Learning rate")
-    parser.add_argument("--min_lr", type=float, default=1e-3, help="Minimum learning rate")
-    parser.add_argument("--lr_milestones", type=int, nargs='+', default=[1000, 6000], help="Learning rate decay milestones")
+    parser.add_argument("--min_lr", type=float, default=1e-4, help="Minimum learning rate")
+    parser.add_argument("--lr_milestones", type=int, nargs='+', default=[10000, 60000], help="Learning rate decay milestones")
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     
     # 初始化Trainer
     trainer = L.Trainer(
-        max_epochs=10,  # 最大训练轮数
+        max_epochs=100,  # 最大训练轮数
         accelerator="gpu", # 使用GPU加速
         devices=[2], # 使用1块GPU
         callbacks=[checkpoint_callback]  # 添加检查点回调
