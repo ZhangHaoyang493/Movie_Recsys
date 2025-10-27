@@ -158,7 +158,6 @@ class DSSM(BaseModel):
 
             # 计算命中率
             targets = batch[2].cpu().numpy()  # 假设item_id是物品的真实ID
-            hits = 0
             for i in range(len(targets)):
                 if labels[i] == 1:  # 只计算正样本的命中率
                     if targets[i] in I[i]:

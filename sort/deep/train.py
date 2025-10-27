@@ -1,7 +1,7 @@
 import sys
 sys.path.append('/data2/zhy/Movie_Recsys')
 
-from recall.DSSM.model import DSSM
+from sort.deep.model import Deep
 from torch.utils.data import DataLoader
 import torch
 import lightning as L
@@ -9,9 +9,9 @@ from DataReader.data_reader import DataReader
 import argparse
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="DSSM Training")
+    parser = argparse.ArgumentParser(description="Deep Training")
     parser.add_argument("--config", "-c", type=str, default="/data2/zhy/Movie_Recsys/feature.json", help="Path to config file")
-    parser.add_argument("--lr", type=float, default=3e-3, help="Learning rate")
+    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--min_lr", type=float, default=1e-6, help="Minimum learning rate")
     parser.add_argument("--lr_milestones", type=int, nargs='+', default=[60000, 200000], help="Learning rate decay milestones")
     return parser.parse_args()
@@ -46,20 +46,20 @@ if __name__ == "__main__":
         'min_lr': args.min_lr,
         'lr_milestones': args.lr_milestones
     }
-    model = DSSM(config_path, {'movies_dataloader': movies_dataloader, 'val_dataloader': val_dataloader}, hparams)
+    model = Deep(config_path, {'movies_dataloader': movies_dataloader, 'val_dataloader': val_dataloader}, hparams)
 
     # 定义检查点回调，只保存模型，不做验证
     checkpoint_callback = L.pytorch.callbacks.ModelCheckpoint(
         save_top_k=-1,  # 保存所有epoch的模型
         every_n_epochs=1,  # 每个epoch都保存
         dirpath="./checkpoints",  # 保存路径
-        filename="dssm-epoch{epoch}",  # 文件名格式
+        filename="deep-epoch{epoch}",  # 文件名格式
         save_weights_only=True
     )
     
     # 初始化Trainer
     trainer = L.Trainer(
-        max_epochs=400,  # 最大训练轮数
+        max_epochs=100,  # 最大训练轮数
         accelerator="gpu", # 使用GPU加速
         devices=[2], # 使用1块GPU
         callbacks=[checkpoint_callback]  # 添加检查点回调

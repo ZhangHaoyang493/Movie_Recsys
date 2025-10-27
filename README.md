@@ -6,7 +6,13 @@
 ### 🔥🔥🔥正在更新
 ### 👏欢迎大家参与本项目💪，多Star🌟，大家的Star是我最大的动力🌟
 
-
+## 环境安装
+- python版本：3.9.24
+- 安装依赖包
+```bash
+pip install -r requirements.txt
+```
+其中torch需要手动下载安装，torch下载地址：https://download.pytorch.org/whl/torch/
 
 ## 📈数据集介绍
 MovieLens数据集1M（https://grouplens.org/datasets/movielens/）
