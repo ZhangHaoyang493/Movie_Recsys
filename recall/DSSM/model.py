@@ -73,8 +73,9 @@ class DSSM(BaseModel):
 
     def training_step(self, batch, batch_idx):
         user_emb, item_emb, neg_item_emb = self.forward(batch)
-        # 计算三元组损失, recall阶段只使用正样本，负样本是batch内随机采样的其他item
-        mask = batch['label'][:, 1] # 获取mask
+
+        # 获取mask，将score<4的样本mask掉
+        mask = batch['label'][:, 1]
         loss = self.triplet_loss(user_emb, item_emb, neg_item_emb, mask=mask)
         
         self.log('train_loss', loss)

@@ -66,9 +66,6 @@ def hit_rate(test_file_path, user_item_history, item_similarity, k=10):
     with open(test_file_path, 'r', encoding='ISO-8859-1') as f:
         for line in tqdm(f, desc="Calculating hit rate"):
             user_id, item_id, rating, timestamp = line.strip().split('::')
-            # 只计算正反馈的命中率
-            if float(rating) < 4.0:
-                continue
             if user_id not in recall_history:
                 recall_history[user_id] = set(recall_top_k_items(user_id, user_item_history, item_similarity, k))
             if item_id in recall_history[user_id]:
@@ -87,5 +84,5 @@ if __name__ == "__main__":
     item_similarity = compute_item_similarity(user_item_history)
 
     # 计算测试集的命中率
-    hr = hit_rate(test_file_path, user_item_history, item_similarity, k=50)
-    print(f"Hit Rate@50: {hr:.6f}")
+    hr = hit_rate(test_file_path, user_item_history, item_similarity, k=10)
+    print(f"Hit Rate@10: {hr:.6f}")
