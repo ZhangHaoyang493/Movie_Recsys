@@ -13,9 +13,13 @@ class FeatureExtractorBase():
         self.share_slot_ids = config.get('share_slot_ids')
         self.slot_ids = config.get('slot_ids')
         self.item_slots = config.get('item_slots', [])
+        self.array_max_length = config.get('array_max_length', {})
+        self.array_slots = config.get('array_slots', [])
         self.movie_features_file_name = 'movie_features.txt'        
         embedding_idx_dict_path = config.get('embedding_idx_dict_path', None)
         
+        # 必要的检测
+        self.check()
 
         self.movie_data_dict = {}
         self.user_data_dict = {}
@@ -33,6 +37,13 @@ class FeatureExtractorBase():
             self.slot_id_embedding_idx_dict = {slot_id: [{}, 0] for slot_id in self.slot_ids}
 
         self.initialization()  # 对一些定制化的slot id的特征提取函数进行初始化
+
+
+    def check(self):
+        for slot_id in self.array_slots:
+            if str(slot_id) not in self.array_max_length:
+                raise ValueError(f"array_slots {slot_id} not in array_max_length, but it is in array_slots")
+    
 
 
     # 读取movie数据, 1::Toy Story (1995)::Animation|Children's|Comedy

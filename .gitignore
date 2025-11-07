@@ -17,3 +17,4 @@ lightning_logs
 checkpoints
 */checkpoints
 show_training_log.sh
+FeatureFiles/*

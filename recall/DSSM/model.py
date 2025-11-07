@@ -25,17 +25,21 @@ class DSSM(BaseModel):
         # 假设我们有两个全连接层，分别用于用户和物品的特征处理
         self.user_fc = nn.Sequential(
             nn.Linear(self.user_input_dim, 128),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
+            nn.Linear(128, 128),
+            nn.LeakyReLU(0.2),
             nn.Linear(128, 64),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Linear(64, 16)
         )
         
         self.item_fc = nn.Sequential(
             nn.Linear(self.item_input_dim, 128),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
+            nn.Linear(128, 128),
+            nn.LeakyReLU(0.2),
             nn.Linear(128, 64),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Linear(64, 16)
         )
         
@@ -53,30 +57,68 @@ class DSSM(BaseModel):
 
         # 构造一个负采样的item_emb，第i个batch的负样本是随机选取的其他item_emb
         batch_size = item_emb.size(0)
-        neg_indices = torch.randperm(batch_size)
-        neg_item_emb = item_emb[neg_indices]
+        neg_item_emb = []
+        for i in range(self.hparams_['negative_sample_rate']):
+            # in-batch负采样 随机打乱item_emb的顺序，作为负样本
+            neg_indices = torch.randperm(batch_size)
+            neg_item_emb.append(item_emb[neg_indices]) # item_emb[neg_indices]: bx16
+        # 将所有负样本拼接在一起，形成一个大的负样本集合
+        neg_item_emb = torch.stack(neg_item_emb, dim=1)  # 变为 bxneg_numx16
 
         # 归一化
         user_emb = F.normalize(user_emb, p=2, dim=1)
         item_emb = F.normalize(item_emb, p=2, dim=1)
-        neg_item_emb = F.normalize(neg_item_emb, p=2, dim=1)
+        neg_item_emb = F.normalize(neg_item_emb, p=2, dim=-1)
 
         return user_emb, item_emb, neg_item_emb
 
     def triplet_loss(self, user_emb, pos_item_emb, neg_item_emb, margin=1.0, mask=None):
+        # user_emb: 用户特征向量，形状为 (batch_size, 16)
+        # pos_item_emb: 正样本物品特征向量，形状为 (batch_size, 16)
+        # neg_item_emb: 负样本物品特征向量，形状为 (batch_size, neg_num, 16)
+        # margin: 三元组损失的边界值
+        # mask: 可选的mask，用于过滤损失
+        neg_sample_num = neg_item_emb.size(1)  # 获取负样本数量
         pos_scores = torch.sum(user_emb * pos_item_emb, dim=1)
-        neg_scores = torch.sum(user_emb * neg_item_emb, dim=1)
+        # neg_scores = torch.sum(user_emb * neg_item_emb, dim=1)
+        neg_scores = torch.bmm(user_emb.unsqueeze(1), neg_item_emb.permute(0, 2, 1)).squeeze(1)  # bxneg_num
+        neg_scores = torch.sum(neg_scores, dim=1).unsqueeze(1)  # bx1
+        pos_scores = pos_scores * neg_sample_num  # 将正样本的分数乘以负样本数量，保持维度一致
         losses = F.relu(margin - pos_scores + neg_scores)
         if mask is not None:
             losses = losses * mask
         return losses.mean()
+
+    def infoNCE_loss(self, user_emb, pos_item_emb, neg_item_emb, temperature=0.1, mask=None):
+        # user_emb: 用户特征向量，形状为 (batch_size, 16)
+        # pos_item_emb: 正样本物品特征向量，形状为 (batch_size, 16)
+        # neg_item_emb: 负样本物品特征向量，形状为 (batch_size, neg_num, 16)
+        # temperature: 温度参数
+        # mask: 可选的mask，用于过滤损失
+        batch_size = user_emb.size(0)
+        neg_sample_num = neg_item_emb.size(1)
+
+        pos_scores = torch.sum(user_emb * pos_item_emb, dim=1) / temperature  # bx1
+        neg_scores = torch.bmm(user_emb.unsqueeze(1), neg_item_emb.permute(0, 2, 1)).squeeze(1) / temperature  # bxneg_num
+
+        logits = torch.cat([pos_scores.unsqueeze(1), neg_scores], dim=1)  # bx(1+neg_num)
+        labels = torch.zeros(batch_size, dtype=torch.long, device=user_emb.device)  # 正样本的索引为0
+
+        losses = F.cross_entropy(logits, labels, reduction='none')
+        if mask is not None:
+            losses = losses * mask
+        return losses.mean()
+    
+        
+
 
     def training_step(self, batch, batch_idx):
         user_emb, item_emb, neg_item_emb = self.forward(batch)
 
         # 获取mask，将score<4的样本mask掉
         mask = batch['label'][:, 1]
-        loss = self.triplet_loss(user_emb, item_emb, neg_item_emb, mask=mask)
+        # loss = self.triplet_loss(user_emb, item_emb, neg_item_emb, mask=mask)
+        loss = self.infoNCE_loss(user_emb, item_emb, neg_item_emb, mask=mask)
         
         self.log('train_loss', loss)
         # 记录当前学习率
@@ -165,7 +207,7 @@ class DSSM(BaseModel):
                         hits_num += 1
                     all_nums += 1
         hit_rate = (hits_num / all_nums) if all_nums > 0 else 0
-        self.log('Hit_Rate_50', hit_rate)
+        self.log(f'Hit_Rate_{k}', hit_rate)
         print(f"Hit Rate@{k}: {hit_rate}")
 
     @torch.no_grad()
@@ -192,4 +234,4 @@ class DSSM(BaseModel):
             self.index.add(self.all_item_embeddings)  # 添加所有物品向量到索引
 
             # 计算验证集的命中率
-            self.hit_rate(k=50)
+            self.hit_rate(k=10)

@@ -9,6 +9,7 @@
   "feature_extractor_path": "/data2/zhy/Movie_Recsys/FeaturesGenerator/feature_extractor.py",
   "out_basedir": "/data2/zhy/Movie_Recsys/FeatureFiles",
   "data_path": "/data2/zhy/Movie_Recsys/FeaturesGenerator/train_data.txt",
+  "user_history_path": "/data2/zhy/Movie_Recsys/MovieLens_1M_data/user_history.json",
   "embedding_idx_dict_path": null,
   "slot_ids": [
     1,  // 用户ID
@@ -16,30 +17,57 @@
     3,  // 用户性别
     4,  // 年龄
     5,  // 电影年份
-    6   // 最近观看的电影
+    6,   // 最近观看的电影
+    7,  //用户的职业
+    8,  // 电影的类别
+    9,   // 用户最近打正分的5部电影
+    10  //用户历史最喜欢的电影类别
+  ],
+  "feature_names": [
+    "user_id",
+    "item_id",
+    "user_gender",
+    "user_age",
+    "movie_year",
+    "user_recent_10_movies",
+    "user_occupation",
+    "movie_genre",
+    "user_recent_positive_score_5_movie",
+    "user_history_favourite_genre"
   ],
   "share_slot_ids": { // 共享slot_id
-    "6": 2
+    "6": 2,
+    "9": 2,
+    "10": 8
   },
-  "sparse_slots": [1, 2, 3],
-  "dense_slots": [4, 5],
-  "array_slots": [6],
+  "sparse_slots": [1, 2, 3, 4, 5, 7, 10],
+  "dense_slots": [],
+  "array_slots": [6, 8, 9],
   "embedding_size": {
     "1": 16,
     "2": 16,
-    "3": 8
+    "3": 8,
+    "4": 8,
+    "5": 8,
+    "7": 8,
+    "8": 8
   },
   "embedding_table_size": {
     "1": 6040,
     "2": 3883,
-    "3": 2
+    "3": 2,
+    "4": 7,  
+    "5": 18,  
+    "7": 21,  
+    "8": 18
   },
   "array_max_length": {
-    "6": 10
+    "6": 10,
+    "8": 5,
+    "9": 10
   },
-  "item_slots": [2, 5],
+  "item_slots": [2, 5, 8],
   // "user_slots": [1, 2, 4, 6],
-  "user_slots": [1, 4, 6],
-  "dense_feature_dim": 1,  // 考虑到对于数值特征的处理方式很多，比如直接输入、归一化、使用YoutubeDNN的数值处理方式等，这些方式对于一个dense特征来说，最终的维度可能不止1维，因此这里需要指定数值特征的最终维度
-  "stage": "recall"  // 考虑到recall阶段和ranking阶段读取数据集的方式有所不同，recall阶段只读取正样本，而ranking阶段需要读取正负样本，因此这里需要指定当前的阶段
+  "user_slots": [1, 3, 4, 6, 7, 9, 10],
+  "dense_feature_dim": 1  // 考虑到对于数值特征的处理方式很多，比如直接输入、归一化、使用YoutubeDNN的数值处理方式等，这些方式对于一个dense特征来说，最终的维度可能不止1维，因此这里需要指定数值特征的最终维度
 }

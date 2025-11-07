@@ -32,9 +32,6 @@ class DataReader(Dataset):
             self.data_lines = [line.strip() for line in self.data_lines]
 
         self.data_lines = [list(line.split('\t')) for line in self.data_lines if line.strip()]
-        # if self.stage == 'recall':
-        #     # recall阶段只保留正样本，这里的-1是为了兼容movie dataset，movie dataset没有label，所以label统一设置为-1
-        #     self.data_lines = [line for line in self.data_lines if (float(line[1]) >= 4.0 or float(line[1]) == -1.0)]
 
     
     def __len__(self):

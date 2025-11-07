@@ -14,6 +14,7 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=3e-3, help="Learning rate")
     parser.add_argument("--min_lr", type=float, default=1e-4, help="Minimum learning rate")
     parser.add_argument("--lr_milestones", type=int, nargs='+', default=[10000, 60000], help="Learning rate decay milestones")
+    parser.add_argument("--negative_sample_rate", type=int, default=3, help="Negative sample rate for training")
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -36,7 +37,7 @@ if __name__ == "__main__":
     
     
     # 创建DataLoader
-    train_dataloader = DataLoader(train_dataset, batch_size=1024, shuffle=True, num_workers=4)
+    train_dataloader = DataLoader(train_dataset, batch_size=512, shuffle=True, num_workers=4)
     val_dataloader = DataLoader(val_dataset, batch_size=512, shuffle=False, num_workers=4, drop_last=False)
     movies_dataloader = DataLoader(movies_dataset, batch_size=256, shuffle=False, num_workers=4, drop_last=False)
     
@@ -44,7 +45,8 @@ if __name__ == "__main__":
     hparams = {
         'lr': args.lr,
         'min_lr': args.min_lr,
-        'lr_milestones': args.lr_milestones
+        'lr_milestones': args.lr_milestones,
+        'negative_sample_rate': args.negative_sample_rate
     }
     model = DSSM(config_path, {'movies_dataloader': movies_dataloader, 'val_dataloader': val_dataloader}, hparams)
 

@@ -22,6 +22,7 @@ class BaseModel(L.LightningModule):
         self.array_max_length = config.get('array_max_length', {})
         self.item_slots = config.get('item_slots', [])
         self.user_slots = config.get('user_slots', [])
+        self.user_history_path = config.get('user_history_path', '')
         self.dense_feature_dim = config.get('dense_feature_dim', 0)
 
         self.sparse_slots = set(self.sparse_slots) if self.sparse_slots else set()
@@ -60,6 +61,10 @@ class BaseModel(L.LightningModule):
         # 构建embedding表
         self.build_embedding_tables()
 
+        # 获取用户的评分历史
+        with open(self.user_history_path, 'r') as f:
+            self.user_history = json.load(f)
+
     def forward(self, x):
         pass
 
@@ -80,9 +85,18 @@ class BaseModel(L.LightningModule):
         self.embedding_tables = nn.ModuleDict()
         # 处理稀疏类型的slot id
         for slot_id in self.sparse_slots:
+            if str(slot_id) in self.share_slot_ids:
+                emb_slot_id = self.share_slot_ids[str(slot_id)]
+            else:
+                emb_slot_id = slot_id
+            
+            if emb_slot_id in self.embedding_tables:
+                continue  # 如果已经创建过共享的embedding表，则跳过
+
+
             # 获取当前slot的embedding表大小和维度
-            table_size = self.embedding_table_size.get(str(slot_id), None)  # 默认表大小为1000
-            embedding_size = self.embedding_size.get(str(slot_id), None)  # 默认embedding维度为8
+            table_size = self.embedding_table_size.get(str(emb_slot_id), None)  # 默认表大小为None
+            embedding_size = self.embedding_size.get(str(emb_slot_id), None)  # 默认embedding维度为None
             
             # 参数检查
             if table_size is None:
@@ -91,7 +105,7 @@ class BaseModel(L.LightningModule):
                 raise ValueError(f"Embedding size for slot_id {slot_id} is not specified in the config file")
 
             # 创建当前slot id对应的embedding表
-            self.embedding_tables[str(slot_id)] = nn.Embedding(table_size, embedding_size)
+            self.embedding_tables[str(emb_slot_id)] = nn.Embedding(table_size, embedding_size)
 
         # 处理array类型的slot id
         for slot_id in self.array_slots:
@@ -165,9 +179,14 @@ class BaseModel(L.LightningModule):
         :param slot_value: slot value
         :return: 指定slot id对应的embedding
         """
+
         if slot_id in self.sparse_slots:
+            if str(slot_id) in self.share_slot_ids:
+                emb_slot_id = self.share_slot_ids[str(slot_id)]
+            else:
+                emb_slot_id = slot_id
             emb_idx = slot_value.long()
-            return self.get_embedding(slot_id, emb_idx)
+            return self.get_embedding(emb_slot_id, emb_idx)
         elif slot_id in self.dense_slots:
             dense_val = slot_value.float().unsqueeze(1)  # 数值特征，直接转换为float，并增加一个维度
             return dense_val
