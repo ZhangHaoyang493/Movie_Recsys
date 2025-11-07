@@ -10,8 +10,8 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Deep Training")
-    parser.add_argument("--config", "-c", type=str, default="/data2/zhy/Movie_Recsys/feature.json", help="Path to config file")
-    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
+    parser.add_argument("--config", "-c", type=str, default="/data2/zhy/Movie_Recsys/feature_sort.json", help="Path to config file")
+    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--min_lr", type=float, default=1e-6, help="Minimum learning rate")
     parser.add_argument("--lr_milestones", type=int, nargs='+', default=[60000, 200000], help="Learning rate decay milestones")
     return parser.parse_args()
@@ -22,11 +22,11 @@ if __name__ == "__main__":
     # 配置文件路径
     config_path = args.config
     # 训练数据路径
-    train_feature_path = '/data2/zhy/Movie_Recsys/FeatureFiles/train_ratings_features.txt'
+    train_feature_path = '/data2/zhy/Movie_Recsys/FeatureFilesForSort/train_ratings_for_sort_features.txt'
     # 验证数据路径
-    val_feature_path = '/data2/zhy/Movie_Recsys/FeatureFiles/test_ratings_features.txt'
+    val_feature_path = '/data2/zhy/Movie_Recsys/FeatureFilesForSort/val_ratings_for_sort_features.txt'
     # 电影数据路径
-    movies_feature_path = "/data2/zhy/Movie_Recsys/FeatureFiles/movie_features.txt"
+    movies_feature_path = "/data2/zhy/Movie_Recsys/FeatureFilesForSort/movie_features.txt"
     
     # 初始化DataReader
     train_dataset = DataReader(config_path, train_feature_path)
@@ -37,8 +37,8 @@ if __name__ == "__main__":
     
     # 创建DataLoader
     train_dataloader = DataLoader(train_dataset, batch_size=1024, shuffle=True, num_workers=4)
-    val_dataloader = DataLoader(val_dataset, batch_size=512, shuffle=False, num_workers=4, drop_last=False)
-    movies_dataloader = DataLoader(movies_dataset, batch_size=256, shuffle=False, num_workers=4, drop_last=False)
+    val_dataloader = DataLoader(val_dataset, batch_size=1024, shuffle=False, num_workers=4, drop_last=False)
+    movies_dataloader = DataLoader(movies_dataset, batch_size=1024, shuffle=False, num_workers=4, drop_last=False)
     
     # 初始化DSSM模型
     hparams = {

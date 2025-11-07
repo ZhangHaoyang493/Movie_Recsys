@@ -10,12 +10,12 @@ class DataGenerator():
             config = json.load(f)
 
         # 从配置文件中获取各个路径和slot_ids
-        self.slot_ids = config.get('slot_ids')
+        self.feature_names = config.get('feature_names')
         
         # 获取feature_extractor_path中FeatureExtractor类的所有函数名称
         function_names = self.get_feature_extractor_functions(config)
-        # 验证slot_ids中的每个slot id都在feature_extractor_path中
-        self.validate_slot_ids(self.slot_ids, function_names)
+        # 验证feature_names中的每个feature都在feature_extractor_path中
+        self.validate_feature_names(self.feature_names, function_names)
 
         # 初始化FeatureExtractor
         feature_extractor_path = config.get('feature_extractor_path')
@@ -50,15 +50,15 @@ class DataGenerator():
         function_names = [func for func in dir(feature_extractor.FeatureExtractor) if callable(getattr(feature_extractor.FeatureExtractor, func)) and not func.startswith("__")]
         
         return function_names
-    
-    # 判断slot id中的每个slot id都在feature_generator_path中定义的函数名称中
-    def validate_slot_ids(self, slot_ids, function_names):
+
+    # 判断feature_names中的每个feature都在feature_generator_path中定义的函数名称中
+    def validate_feature_names(self, feature_names, function_names):
         function_names = set(function_names)  # 转换为集合以提高查找效率
-        for slot_id in slot_ids: # 遍历每个slot_id
-            if f"feature_extractor_{slot_id}" not in function_names: # 检查对应的函数名称是否存在
-                raise ValueError(f"slot_id {slot_id} does not correspond to any function in feature_generator")
+        for fea in feature_names: # 遍历每个feature
+            if f"feature_extractor_{fea}" not in function_names: # 检查对应的函数名称是否存在
+                raise ValueError(f"feature [{fea}] does not correspond to any function in feature_generator")
 
-
+ 
 # 示例用法
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Data Generator")

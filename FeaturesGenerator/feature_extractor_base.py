@@ -10,13 +10,12 @@ class FeatureExtractorBase():
         self.movie_path = config.get('movies_path')
         self.user_path = config.get('users_path')
         self.out_basedir = config.get('out_basedir')
-        self.share_slot_ids = config.get('share_slot_ids')
-        self.slot_ids = config.get('slot_ids')
-        self.item_slots = config.get('item_slots', [])
+        self.share_emb_table_features = config.get('share_emb_table_features')
+        self.feature_names = config.get('feature_names')
+        self.item_feature_names = config.get('item_feature_names', [])
         self.array_max_length = config.get('array_max_length', {})
-        self.array_slots = config.get('array_slots', [])
+        self.array_feature_names = config.get('array_feature_names', [])
         self.movie_features_file_name = 'movie_features.txt'        
-        embedding_idx_dict_path = config.get('embedding_idx_dict_path', None)
         
         # 必要的检测
         self.check()
@@ -29,21 +28,21 @@ class FeatureExtractorBase():
         self.movie_data_reader()
         self.user_data_reader()
 
-        # 将slot id对应的特征值映射为embedding表的索引
-        if embedding_idx_dict_path and os.path.exists(embedding_idx_dict_path):
-            with open(embedding_idx_dict_path, 'r') as f:
-                self.slot_id_embedding_idx_dict = json.load(f)
-        else:
-            self.slot_id_embedding_idx_dict = {slot_id: [{}, 0] for slot_id in self.slot_ids}
+        # 将feature name对应的特征值映射为embedding表的索引
+        self.feature_name_original_val_2_embedding_idx_dict = {fea: [{}, 0] for fea in self.feature_names}
+        self.feature_name_embedding_idx_2_original_val_dict = {fea: {} for fea in self.feature_names}
 
-        self.initialization()  # 对一些定制化的slot id的特征提取函数进行初始化
+        self.initialization()  # 对一些定制化的feature name的特征提取函数进行初始化
 
 
     def check(self):
-        for slot_id in self.array_slots:
-            if str(slot_id) not in self.array_max_length:
-                raise ValueError(f"array_slots {slot_id} not in array_max_length, but it is in array_slots")
-    
+        for feature_name in self.array_feature_names:
+            if feature_name not in self.array_max_length:
+                raise ValueError(f"array_feature [{feature_name}] not in array_max_length, but it is in array_feature_names")
+            
+        if os.path.exists(self.out_basedir) is False:
+            os.makedirs(self.out_basedir)
+
 
 
     # 读取movie数据, 1::Toy Story (1995)::Animation|Children's|Comedy
@@ -102,7 +101,7 @@ class FeatureExtractorBase():
             self.output_file_f = open(os.path.join(self.out_basedir, output_file_name), 'a')
             # 遍历ratings的每一行数据，获取对应的ratings数据、movie数据、user数据
             for rating in tqdm(self.ratings_datas, desc="Extracting features"):
-                self.extracted_feature = {}  # slot_id: feature_hash_value
+                self.extracted_feature = {} 
 
                 # 获取对应的movie数据和user数据
                 user_id, movie_id = rating[0], rating[1]
@@ -115,16 +114,16 @@ class FeatureExtractorBase():
                     'user_info': user_info
                 }
 
-                # 依次调用每个slot id对应的特征提取函数
-                for slot_id in self.slot_ids:
-                    func_name = f"feature_extractor_{slot_id}"
+                # 依次调用每个feature name对应的特征提取函数
+                for fea in self.feature_names:
+                    func_name = f"feature_extractor_{fea}"
                     func = getattr(self, func_name)
                     func(data_line)
 
                 self.label = self.label_extractor(data_line)  # 评分作为标签
 
-                # 将提取到的特征和标签写入到output_path中，格式为 slot_id:feature_hash_value slot_id:feature_hash_value ... \t label1 label2
-                feature_line = ' '.join([f"{slot_id}:{hash_value}" for slot_id, hash_value in self.extracted_feature.items()])
+                # 将提取到的特征和标签写入到output_path中，格式为 feature_name:feature_hash_value feature_name:feature_hash_value ... \t label1 label2
+                feature_line = ' '.join([f"{fea}:{hash_value}" for fea, hash_value in self.extracted_feature.items()])
                 label_line = ' '.join([str(l) for l in self.label])
                 self.output_file_f.write(f"{feature_line}\t{label_line}\n")
 
@@ -140,7 +139,7 @@ class FeatureExtractorBase():
         self.output_file_f = open(os.path.join(self.out_basedir, self.movie_features_file_name), 'a')
         
         for movie_id, movie_info in tqdm(self.movie_data_dict.items(), desc="Extracting item features"):
-            self.extracted_feature = {}  # slot_id: feature_hash_value
+            self.extracted_feature = {}  # feature_name: feature_hash_value
 
             # 构造一个包含movie_info的字典
             data_line = {
@@ -148,27 +147,31 @@ class FeatureExtractorBase():
             }
 
             
-            # 依次调用每个item slot id对应的特征提取函数
-            for slot_id in self.item_slots:
-                func_name = f"feature_extractor_{slot_id}"
+            # 依次调用每个item feature_name对应的特征提取函数
+            for fea in self.item_feature_names:
+                func_name = f"feature_extractor_{fea}"
                 func = getattr(self, func_name)
                 func(data_line)
 
-            # 将提取到的特征和标签写入到output_path中，格式为 slot_id:feature_hash_value slot_id:feature_hash_value ... \t label
-            feature_line = ' '.join([f"{slot_id}:{hash_value}" for slot_id, hash_value in self.extracted_feature.items()])
+            # 将提取到的特征和标签写入到output_path中，格式为 feature_name:feature_hash_value feature_name:feature_hash_value ... \t label
+            feature_line = ' '.join([f"{fea}:{hash_value}" for fea, hash_value in self.extracted_feature.items()])
             self.output_file_f.write(f"{feature_line}\t-1\n")  # 物料侧没有标签，统一写为-1
         self.output_file_f.close()
 
-        # 存储slot_id_embedding_idx_dict到json文件中
-        with open(os.path.join(self.out_basedir, 'embedding_idx_dict.json'), 'w') as f:
-            json.dump(self.slot_id_embedding_idx_dict, f)
+        # 存储feature_name_original_val_2_embedding_idx_dict到json文件中
+        with open(os.path.join(self.out_basedir, 'original_val_2_embedding_idx_dict.json'), 'w') as f:
+            json.dump(self.feature_name_original_val_2_embedding_idx_dict, f)
+        # 存储feature_name_embedding_idx_2_original_val_dict到json文件中
+        with open(os.path.join(self.out_basedir, 'embedding_idx_2_original_val_dict.json'), 'w') as f:
+            json.dump(self.feature_name_embedding_idx_2_original_val_dict, f)
 
-    # 获取slot id对应的特征的真实值对应的embedding表的索引
-    def get_feature_embedding_idx(self, slot_id, feature_value):
-        feature_dict, current_idx = self.slot_id_embedding_idx_dict[slot_id]
+    # 获取feature name对应的特征的真实值对应的embedding表的索引
+    def get_feature_embedding_idx(self, feature_name, feature_value):
+        feature_dict, current_idx = self.feature_name_original_val_2_embedding_idx_dict[feature_name]
 
         if feature_value not in feature_dict:
             feature_dict[feature_value] = current_idx
-            self.slot_id_embedding_idx_dict[slot_id][1] += 1  # 更新当前的索引
+            self.feature_name_embedding_idx_2_original_val_dict[feature_name][current_idx] = feature_value
+            self.feature_name_original_val_2_embedding_idx_dict[feature_name][1] += 1  # 更新当前的索引
 
         return feature_dict[feature_value]

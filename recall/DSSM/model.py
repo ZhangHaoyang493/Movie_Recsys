@@ -147,14 +147,14 @@ class DSSM(BaseModel):
 
     def get_user_embedding(self, batch):
         user_embeddings = []
-        for slot_id in self.user_slots:
-            emb = self.get_slots_embedding(slot_id, batch[slot_id])
-            if slot_id in self.sparse_slots:
+        for feature_name in self.user_feature_names:
+            emb = self.get_features_embedding(feature_name, batch[feature_name])
+            if feature_name in self.sparse_feature_names:
                 user_embeddings.append(emb)
-            elif slot_id in self.dense_slots:
+            elif feature_name in self.dense_feature_names:
                 user_embeddings.append(emb)
-            elif slot_id in self.array_slots:
-                mask = batch.get(f"{slot_id}_mask", None)  # bxarr_lenxdim
+            elif feature_name in self.array_feature_names:
+                mask = batch.get(f"{feature_name}_mask", None)  # bxarr_lenxdim
                 if mask is not None:
                     emb = emb * mask.unsqueeze(-1)  # 应用mask
                     emb = emb.sum(dim=1) / (mask.sum(dim=1, keepdim=True) + 1e-8)  # 避免除以零，mean pooling
@@ -164,14 +164,14 @@ class DSSM(BaseModel):
     
     def get_item_embedding(self, batch):
         item_embeddings = []
-        for slot_id in self.item_slots:
-            emb = self.get_slots_embedding(slot_id, batch[slot_id])
-            if slot_id in self.sparse_slots:
+        for feature_name in self.item_feature_names:
+            emb = self.get_features_embedding(feature_name, batch[feature_name])
+            if feature_name in self.sparse_feature_names:
                 item_embeddings.append(emb)
-            elif slot_id in self.dense_slots:
+            elif feature_name in self.dense_feature_names:
                 item_embeddings.append(emb)
-            elif slot_id in self.array_slots:
-                mask = batch.get(f"{slot_id}_mask", None)  # bxarr_lenxdim
+            elif feature_name in self.array_feature_names:
+                mask = batch.get(f"{feature_name}_mask", None)  # bxarr_lenxdim
                 if mask is not None:
                     emb = emb * mask.unsqueeze(-1)  # 应用mask
                     emb = emb.sum(dim=1) / (mask.sum(dim=1, keepdim=True) + 1e-8)  # 避免除以零，mean pooling
@@ -184,7 +184,9 @@ class DSSM(BaseModel):
         hits_num = 0
         all_nums = 0
         for batch in tqdm(self.val_dataloader_, desc="Evaluating Hit Rate", ncols=100):
-            labels = batch['label'][:, 1]  # 计算hit rate时只考虑正样本，这里获取到labels的值，后续用于过滤负样本
+            batch_size = batch['user_id'].size(0)
+            if batch_size != 1:
+                raise ValueError("Hit rate evaluation only supports batch_size=1 for accurate user history filtering.")
 
             for key in batch:
                 if isinstance(batch[key], torch.Tensor):
@@ -194,18 +196,33 @@ class DSSM(BaseModel):
             user_emb = F.normalize(user_emb, p=2, dim=1)
             user_emb = user_emb.cpu().numpy()
 
-            D, I = self.index.search(user_emb, k)  # 搜索top-k的物品
-
-            # 将索引映射到item id
-            I = [[self.idx_item_emb_dic[idx] for idx in user_indices] for user_indices in I]
+            
 
             # 计算命中率
-            targets = batch[2].cpu().numpy()  # 假设item_id是物品的真实ID
-            for i in range(len(targets)):
-                if labels[i] == 1:  # 只计算正样本的命中率
-                    if targets[i] in I[i]:
-                        hits_num += 1
-                    all_nums += 1
+            # targets = batch['movie_id'].cpu().numpy()  # 假设item_id是物品的真实ID
+            user_ids = batch['user_id'].cpu().numpy() # 获取用户ID，用于消重
+            # for i in range(len(targets)):
+            user_true_id = self.emb_idx_2_val_dict['user_id'][str(user_ids[0])]
+            user_history = set(self.user_history.get(str(user_true_id), []).keys())
+
+
+            D, I = self.index.search(user_emb, k + len(user_history))  # 搜索top-k的物品，但是这里需要考虑用户历史交互过的物品，所以多搜索len(user_history)个
+
+            # 将索引映射到item id的hash值
+            I = [[self.idx_item_emb_dic[idx] for idx in user_indices] for user_indices in I][0]
+            # 过滤掉用户历史交互过的物品
+            filtered_I = []
+            for item_id in I:
+                item_true_id = self.emb_idx_2_val_dict['movie_id'][str(item_id)]
+                if item_true_id not in user_history:
+                    filtered_I.append(item_id)
+                if len(filtered_I) >= k:
+                    break
+            target_item_id = batch['movie_id'].cpu().numpy()[0]
+            if target_item_id in filtered_I:
+                hits_num += 1
+            all_nums += 1
+
         hit_rate = (hits_num / all_nums) if all_nums > 0 else 0
         self.log(f'Hit_Rate_{k}', hit_rate)
         print(f"Hit Rate@{k}: {hit_rate}")
@@ -225,8 +242,8 @@ class DSSM(BaseModel):
                 item_emb = F.normalize(item_emb, p=2, dim=1)
                 item_emb = item_emb.cpu().numpy()
                 all_item_embeddings.append(item_emb)
-                for i, item_id in enumerate(batch[2].cpu().numpy()): # 2是item id的slot_id
-                    self.idx_item_emb_dic[idx] = item_id  # 记录item_id对应的embedding在all_item_embeddings中的索引
+                for i, item_id in enumerate(batch['movie_id'].cpu().numpy()):
+                    self.idx_item_emb_dic[idx] = item_id  # 记录item_id的hash值对应的embedding在all_item_embeddings中的索引
                     idx += 1
 
             self.all_item_embeddings = np.concatenate(all_item_embeddings, axis=0)

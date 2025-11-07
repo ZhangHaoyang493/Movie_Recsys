@@ -60,12 +60,19 @@ MovieLens数据集1M（https://grouplens.org/datasets/movielens/）
 
 ## 召回层
 ### 各种召回方式的测试结果
-|文件路径|说明|HitRate@10|
+|文件路径|说明|HR@10|
 |-------|-------|------|
 |`recall/ItemCF/itemCF_base.py`|ItemCF：基于物料的协同过滤|8.3637%|
+|`recall/DSSM`|DSSM：双塔模型|11.5601%|
 
 正在更新...
 
+## 排序层
+
+### 各种排序方式的测试结果
+|文件路径|说明|AUC|
+|-------|-------|------|
+|`sort/deep`|多层MLP+ReLU|8.3637|
 
 # 日志
 - 2025.10.4 

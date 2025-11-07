@@ -13,47 +13,53 @@ class BaseModel(L.LightningModule):
             config = json.load(f)
 
         # 从json文件中获取各个配置参数
-        self.sparse_slots = config.get('sparse_slots', None)
-        self.dense_slots = config.get('dense_slots', None)
-        self.array_slots = config.get('array_slots', None)
+        self.sparse_feature_names = config.get('sparse_feature_names', None)
+        self.dense_feature_names = config.get('dense_feature_names', None)
+        self.array_feature_names = config.get('array_feature_names', None)
         self.embedding_size = config.get('embedding_size', None)
         self.embedding_table_size = config.get('embedding_table_size', None)
-        self.share_slot_ids = config.get('share_slot_ids', {})
+        self.share_emb_table_features = config.get('share_emb_table_features', {})
         self.array_max_length = config.get('array_max_length', {})
-        self.item_slots = config.get('item_slots', [])
-        self.user_slots = config.get('user_slots', [])
-        self.user_history_path = config.get('user_history_path', '')
+        self.item_feature_names = config.get('item_feature_names', [])
+        self.user_feature_names = config.get('user_feature_names', [])
+        self.user_history_path = config.get('user_history_path', None)
         self.dense_feature_dim = config.get('dense_feature_dim', 0)
+        self.emb_idx_2_val_path = config.get('embedding_idx_2_original_val_dict_path', None)
+        self.val_2_emb_idx_path = config.get('original_val_2_embedding_idx_dict_path', None)
 
-        self.sparse_slots = set(self.sparse_slots) if self.sparse_slots else set()
-        self.dense_slots = set(self.dense_slots) if self.dense_slots else set()
-        self.array_slots = set(self.array_slots) if self.array_slots else set()
-        self.item_slots = set(self.item_slots) if self.item_slots else set()
-        self.user_slots = set(self.user_slots) if self.user_slots else set()
+        self.sparse_feature_names = set(self.sparse_feature_names) if self.sparse_feature_names else set()
+        self.dense_feature_names = set(self.dense_feature_names) if self.dense_feature_names else set()
+        self.array_feature_names = set(self.array_feature_names) if self.array_feature_names else set()
+        self.item_feature_names = set(self.item_feature_names) if self.item_feature_names else set()
+        self.user_feature_names = set(self.user_feature_names) if self.user_feature_names else set()
 
         # 计算item侧和user侧的input的维度
         self.item_input_dim = 0
         self.user_input_dim = 0
-        for slot_id in self.sparse_slots:
-            emb_size = self.embedding_size.get(str(slot_id), 8)  # 默认embedding维度为8
-            if slot_id in self.item_slots:
-                self.item_input_dim += emb_size
-            if slot_id in self.user_slots:
-                self.user_input_dim += emb_size
-        for slot_id in self.dense_slots:
-            if slot_id in self.item_slots:
-                self.item_input_dim += self.dense_feature_dim
-            if slot_id in self.user_slots:
-                self.user_input_dim += self.dense_feature_dim
-        for slot_id in self.array_slots:
-            if str(slot_id) in self.share_slot_ids:
-                emb_slot_id = self.share_slot_ids[str(slot_id)]
+        for feature_name in self.sparse_feature_names:
+            if feature_name in self.share_emb_table_features:
+                emb_feature_name = self.share_emb_table_features[feature_name]
             else:
-                emb_slot_id = slot_id
-            emb_size = self.embedding_size.get(str(emb_slot_id), 8)  # 默认embedding维度为8
-            if slot_id in self.item_slots:
+                emb_feature_name = feature_name
+            emb_size = self.embedding_size.get(emb_feature_name, 8)  # 默认embedding维度为8
+            if feature_name in self.item_feature_names:
                 self.item_input_dim += emb_size
-            if slot_id in self.user_slots:
+            if feature_name in self.user_feature_names:
+                self.user_input_dim += emb_size
+        for feature_name in self.dense_feature_names:
+            if feature_name in self.item_feature_names:
+                self.item_input_dim += self.dense_feature_dim
+            if feature_name in self.user_feature_names:
+                self.user_input_dim += self.dense_feature_dim
+        for feature_name in self.array_feature_names:
+            if feature_name in self.share_emb_table_features:
+                emb_feature_name = self.share_emb_table_features[feature_name]
+            else:
+                emb_feature_name = feature_name
+            emb_size = self.embedding_size.get(emb_feature_name, 8)  # 默认embedding维度为8
+            if feature_name in self.item_feature_names:
+                self.item_input_dim += emb_size
+            if feature_name in self.user_feature_names:
                 self.user_input_dim += emb_size
 
 
@@ -62,8 +68,17 @@ class BaseModel(L.LightningModule):
         self.build_embedding_tables()
 
         # 获取用户的评分历史
-        with open(self.user_history_path, 'r') as f:
-            self.user_history = json.load(f)
+        if self.user_history_path:
+            with open(self.user_history_path, 'r') as f:
+                self.user_history = json.load(f)
+        # 获取embedding索引和真实值的映射字典
+        if self.emb_idx_2_val_path:
+            with open(self.emb_idx_2_val_path, 'r') as f:
+                self.emb_idx_2_val_dict = json.load(f)
+        # 获取真实值和embedding索引的映射字典
+        if self.val_2_emb_idx_path:
+            with open(self.val_2_emb_idx_path, 'r') as f:
+                self.val_2_emb_idx_dict = json.load(f)
 
     def forward(self, x):
         pass
@@ -83,146 +98,96 @@ class BaseModel(L.LightningModule):
     def build_embedding_tables(self):
         # 构建embedding表,使用ModuleDict管理多个embedding表，这样可以方便地将它们注册为模型的子模块。直接使用字典的话会导致参数无法被正确注册和更新。
         self.embedding_tables = nn.ModuleDict()
-        # 处理稀疏类型的slot id
-        for slot_id in self.sparse_slots:
-            if str(slot_id) in self.share_slot_ids:
-                emb_slot_id = self.share_slot_ids[str(slot_id)]
+        # 处理稀疏类型的feature name
+        for feature_name in self.sparse_feature_names:
+            if feature_name in self.share_emb_table_features:
+                emb_feature_name = self.share_emb_table_features[feature_name]
             else:
-                emb_slot_id = slot_id
-            
-            if emb_slot_id in self.embedding_tables:
+                emb_feature_name = feature_name
+
+            if emb_feature_name in self.embedding_tables:
                 continue  # 如果已经创建过共享的embedding表，则跳过
 
 
-            # 获取当前slot的embedding表大小和维度
-            table_size = self.embedding_table_size.get(str(emb_slot_id), None)  # 默认表大小为None
-            embedding_size = self.embedding_size.get(str(emb_slot_id), None)  # 默认embedding维度为None
-            
+            # 获取当前feature name的embedding表大小和维度
+            table_size = self.embedding_table_size.get(emb_feature_name, None)  # 默认表大小为None
+            embedding_size = self.embedding_size.get(emb_feature_name, None)  # 默认embedding维度为None
+
             # 参数检查
             if table_size is None:
-                raise ValueError(f"Embedding table size for slot_id {slot_id} is not specified in the config file")
+                raise ValueError(f"Embedding table size for feature [{emb_feature_name}] is not specified in the config file")
             if embedding_size is None:
-                raise ValueError(f"Embedding size for slot_id {slot_id} is not specified in the config file")
+                raise ValueError(f"Embedding size for feature [{emb_feature_name}] is not specified in the config file")
 
-            # 创建当前slot id对应的embedding表
-            self.embedding_tables[str(emb_slot_id)] = nn.Embedding(table_size, embedding_size)
+            # 创建当前feature name对应的embedding表
+            self.embedding_tables[emb_feature_name] = nn.Embedding(table_size, embedding_size)
 
-        # 处理array类型的slot id
-        for slot_id in self.array_slots:
-            if str(slot_id) in self.share_slot_ids:
-                emb_slot_id = self.share_slot_ids[str(slot_id)]
+        # 处理array类型的feature name
+        for feature_name in self.array_feature_names:
+            if feature_name in self.share_emb_table_features:
+                emb_feature_name = self.share_emb_table_features[str(feature_name)]
             else:
-                emb_slot_id = slot_id
-            
-            if emb_slot_id in self.embedding_tables:
+                emb_feature_name = feature_name
+
+            if emb_feature_name in self.embedding_tables:
                 continue  # 如果已经创建过共享的embedding表，则跳过
 
-            # 获取当前slot的embedding表大小和维度
-            table_size = self.embedding_table_size.get(str(emb_slot_id), None)  # 默认表大小为1000
-            embedding_size = self.embedding_size.get(str(emb_slot_id), None)  # 默认embedding维度为8
-            
+            # 获取当前feature name的embedding表大小和维度
+            table_size = self.embedding_table_size.get(emb_feature_name, None)  # 默认表大小为1000
+            embedding_size = self.embedding_size.get(emb_feature_name, None)  # 默认embedding维度为8
+
             # 参数检查
             if table_size is None:
-                raise ValueError(f"Embedding table size for slot_id {emb_slot_id} is not specified in the config file")
+                raise ValueError(f"Embedding table size for feature [{emb_feature_name}] is not specified in the config file")
             if embedding_size is None:
-                raise ValueError(f"Embedding size for slot_id {emb_slot_id} is not specified in the config file")
+                raise ValueError(f"Embedding size for feature [{emb_feature_name}] is not specified in the config file")
 
-            # 创建当前slot id对应的embedding表
-            self.embedding_tables[str(emb_slot_id)] = nn.Embedding(table_size, embedding_size)
+            # 创建当前feature name对应的embedding表
+            self.embedding_tables[emb_feature_name] = nn.Embedding(table_size, embedding_size)
 
 
-        # 获取slot id对应的embedding
-    def get_embedding(self, slot_id: int, idx: torch.Tensor):
+        # 获取feature name对应的embedding
+    def get_embedding(self, feature_name: str, idx: torch.Tensor):
         """
-        获取slot id对应的embedding
-        :param slot_id: slot id
+        获取feature name对应的embedding
+        :param feature_name: feature name
         :param idx: 特征值对应的embedding索引
         :return: embedding向量
         """
-        if str(slot_id) not in self.embedding_tables:
-            raise ValueError(f"Embedding table for slot_id {slot_id} does not exist")
-        return self.embedding_tables[str(slot_id)](idx)
+        if feature_name not in self.embedding_tables:
+            raise ValueError(f"Embedding table for feature [{feature_name}] does not exist")
+        return self.embedding_tables[feature_name](idx)
 
 
-    # def get_slots_feature(self, batch):
-    #     """
-    #     获取一个batch中所有slot id对应的embedding
-    #     :param batch: 一个batch的数据，格式为 {slot_id: feature_value, ...}
-    #     :return: 一个batch中所有slot id对应的embedding，格式为 {slot_id: embedding_tensor, ...}
-    #     """
-    #     self.slot_embeddings = {}
-    #     for slot_id, feature_value in batch.items():
-    #         # 如果slot id是字符串，则跳过
-    #         if isinstance(slot_id, str):
-    #             continue  # 跳过mask字段
-
-    #         if slot_id in self.sparse_slots:
-    #             emb_idx = feature_value.long()
-    #             self.slot_embeddings[slot_id] = self.get_embedding(slot_id, emb_idx)
-    #         elif slot_id in self.dense_slots:
-    #             dense_val = feature_value.float().unsqueeze(1)  # 数值特征，直接转换为float，并增加一个维度
-    #             self.slot_embeddings[slot_id] = dense_val
-    #         elif slot_id in self.array_slots:
-    #             emb_indices = feature_value  # 数组特征，已经是一个列表
-    #             if str(slot_id) in self.share_slot_ids:
-    #                 emb_slot_id = self.share_slot_ids[str(slot_id)]
-    #             else:
-    #                 emb_slot_id = slot_id
-    #             self.slot_embeddings[slot_id] = self.get_embedding(emb_slot_id, emb_indices.long())
-    #         else:
-    #             raise ValueError(f"Slot id {slot_id} is not defined in sparse_slots, dense_slots or array_slots")
-            
-    def get_slots_embedding(self, slot_id, slot_value):
+    def get_features_embedding(self, feature_name, feature_value):
         """
-        获取指定slot id对应的embedding
-        :param slot_id: slot id
-        :param slot_value: slot value
-        :return: 指定slot id对应的embedding
+        获取指定feature name对应的embedding
+        :param feature_name: feature name
+        :param feature_value: feature value
+        :return: 指定feature name对应的embedding
         """
 
-        if slot_id in self.sparse_slots:
-            if str(slot_id) in self.share_slot_ids:
-                emb_slot_id = self.share_slot_ids[str(slot_id)]
+        if feature_name in self.sparse_feature_names:
+            if str(feature_name) in self.share_emb_table_features:
+                emb_feature_name = self.share_emb_table_features[feature_name]
             else:
-                emb_slot_id = slot_id
-            emb_idx = slot_value.long()
-            return self.get_embedding(emb_slot_id, emb_idx)
-        elif slot_id in self.dense_slots:
-            dense_val = slot_value.float().unsqueeze(1)  # 数值特征，直接转换为float，并增加一个维度
+                emb_feature_name = feature_name
+            emb_idx = feature_value.long()
+            return self.get_embedding(emb_feature_name, emb_idx)
+        elif feature_name in self.dense_feature_names:
+            dense_val = feature_value.float().unsqueeze(1)  # 数值特征，直接转换为float，并增加一个维度
             return dense_val
-        elif slot_id in self.array_slots:
-            emb_indices = slot_value  # 数组特征，已经是一个列表
-            if str(slot_id) in self.share_slot_ids:
-                emb_slot_id = self.share_slot_ids[str(slot_id)]
+        elif feature_name in self.array_feature_names:
+            emb_indices = feature_value  # 数组特征，已经是一个列表
+            if str(feature_name) in self.share_emb_table_features:
+                emb_feature_name = self.share_emb_table_features[feature_name]
             else:
-                emb_slot_id = slot_id
-            return self.get_embedding(emb_slot_id, emb_indices.long())
+                emb_feature_name = feature_name
+            return self.get_embedding(emb_feature_name, emb_indices.long())
         else:
-            raise ValueError(f"Slot id {slot_id} is not defined in sparse_slots, dense_slots or array_slots")
-            
-    # def get_user_feature(self):
-    #     """
-    #     获取用户侧的特征向量
-    #     :return: 用户侧的特征向量，形状为 (batch_size, user_input_dim)
-    #     """
-    #     pass
-        # user_features = []
-        # for slot_id in self.user_slots:
-        #     if slot_id not in self.slot_embeddings:
-        #         raise ValueError(f"User slot_id {slot_id} not found in the batch data")
-        #     emb = self.slot_embeddings[slot_id]
-        #     if slot_id in self.array_slots:
-        #         mask = self.slot_embeddings.get(f"{slot_id}_mask", None)
-        #         if mask is None:
-        #             raise ValueError(f"Mask for array slot_id {slot_id} not found in the batch data")
-        #         # 对数组类型的embedding进行mask处理，然后取平均
-        #         emb = emb * mask.unsqueeze(2)  # 扩展mask维度以匹配emb的维度
-        #         emb = emb.sum(dim=1) / (mask.sum(dim=1, keepdim=True) + 1e-8)  # 避免除0
-        #     user_features.append(emb)
-        
-        # user_feature_vector = torch.cat(user_features, dim=1)  # 在特征维度上拼接
-        # return user_feature_vector
-            
+            raise ValueError(f"Feature name [{feature_name}] is not defined in sparse_feature_names, dense_feature_names or array_feature_names")
+
+
         
 
 if __name__ == "__main__":
@@ -236,7 +201,8 @@ if __name__ == "__main__":
 
     model = BaseModel('/data2/zhy/Movie_Recsys/feature.json')
     for batch in dataloader:
-        model.get_slots_feature(batch)
-        for slot_id, emb in model.slot_embeddings.items():
-            print(f"Slot ID: {slot_id}, Embedding Shape: {emb.shape}")
+        for feature_name in batch:
+            if feature_name != 'label' and feature_name[-5:] != '_mask':
+                emb = model.get_features_embedding(feature_name, batch[feature_name])
+                print(f"Feature: {feature_name}, Embedding shape: {emb.shape}")
         break

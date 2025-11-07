@@ -10,7 +10,7 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description="DSSM Training")
-    parser.add_argument("--config", "-c", type=str, default="/data2/zhy/Movie_Recsys/feature.json", help="Path to config file")
+    parser.add_argument("--config", "-c", type=str, default="/data2/zhy/Movie_Recsys/feature_recall.json", help="Path to config file")
     parser.add_argument("--lr", type=float, default=3e-3, help="Learning rate")
     parser.add_argument("--min_lr", type=float, default=1e-4, help="Minimum learning rate")
     parser.add_argument("--lr_milestones", type=int, nargs='+', default=[10000, 60000], help="Learning rate decay milestones")
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     
     # 创建DataLoader
     train_dataloader = DataLoader(train_dataset, batch_size=512, shuffle=True, num_workers=4)
-    val_dataloader = DataLoader(val_dataset, batch_size=512, shuffle=False, num_workers=4, drop_last=False)
+    val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=4, drop_last=False)
     movies_dataloader = DataLoader(movies_dataset, batch_size=256, shuffle=False, num_workers=4, drop_last=False)
     
     # 初始化DSSM模型
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     trainer = L.Trainer(
         max_epochs=100,  # 最大训练轮数
         accelerator="gpu", # 使用GPU加速
-        devices=[2], # 使用1块GPU
+        devices=[1], # 使用1块GPU
         callbacks=[checkpoint_callback]  # 添加检查点回调
     )
 

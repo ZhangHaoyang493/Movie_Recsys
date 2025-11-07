@@ -6,7 +6,7 @@ import os
 import pyjson5 as json
 
 
-# 构造一个torch的dataloader类，初始化给定一个包含各种slot id的json文件
+# 构造一个torch的dataloader类，初始化给定一个包含各种feature_name的json文件
 class DataReader(Dataset):
     def __init__(self, config_path: str, feature_file_path: str = None):
         # 读取json文件
@@ -14,9 +14,9 @@ class DataReader(Dataset):
             config = json.load(f)
 
         # 从json文件中获取各个配置参数
-        self.sparse_slots = config.get('sparse_slots', [])
-        self.dense_slots = config.get('dense_slots', [])
-        self.array_slots = config.get('array_slots', [])
+        self.sparse_feature_names = config.get('sparse_feature_names', [])
+        self.dense_feature_names = config.get('dense_feature_names', [])
+        self.array_feature_names = config.get('array_feature_names', [])
         self.stage = config.get('stage', None)  # 默认为recall阶段
         self.data_path = feature_file_path
         self.array_max_length = config.get('array_max_length', {})
@@ -39,29 +39,28 @@ class DataReader(Dataset):
     
     def __getitem__(self, idx):
         feature_part, label_part = self.data_lines[idx]
-        # 解析每一行数据，格式为 slot_id:feature_hash_value slot_id:feature_hash_value ... \t label
+        # 解析每一行数据，格式为 feature_name:feature_hash_value feature_name:feature_hash_value ... \t label
         feature_items = feature_part.split(' ')
         
         ret_datas = {}
         
         for item in feature_items:
-            slot_id, emb_idx = item.split(':')
-            slot_id = int(slot_id)
-            
-            if slot_id in self.sparse_slots:
+            feature_name, emb_idx = item.split(':')
+
+            if feature_name in self.sparse_feature_names:
                 emb_idx = int(emb_idx)
                 # 稀疏特征，转换为embedding索引
-                ret_datas[slot_id] = emb_idx
-            elif slot_id in self.dense_slots:
+                ret_datas[feature_name] = emb_idx
+            elif feature_name in self.dense_feature_names:
                 dense_val = int(emb_idx)
                 # 数值特征，直接转换为float
-                ret_datas[slot_id] = dense_val
-            elif slot_id in self.array_slots:
+                ret_datas[feature_name] = dense_val
+            elif feature_name in self.array_feature_names:
                 # 数组特征，转换为embedding索引的列表
                 emb_indices = [int(i) for i in str(emb_idx).split(',')] if str(emb_idx) != '' else [] # 处理空字符串的情况
-                max_length = self.array_max_length.get(str(slot_id), None)
+                max_length = self.array_max_length.get(feature_name, None)
                 if max_length is None:
-                    raise ValueError(f"Max length for array slot_id {slot_id} is not specified in the config file")
+                    raise ValueError(f"Max length for array feature_name [{feature_name}] is not specified in the config file")
                 
                 # 如果长度不足max_length，则进行padding。同时构造一个mask
                 padding_mask = torch.ones(max_length, dtype=torch.float32)
@@ -73,10 +72,8 @@ class DataReader(Dataset):
                 padding_mask = padding_mask[:max_length]
 
                 emb_indices = torch.tensor(emb_indices, dtype=torch.long)
-                ret_datas[slot_id] = emb_indices  # 堆叠为一个tensor
-                ret_datas[f"{slot_id}_mask"] = padding_mask  # 添加mask
-            # else:
-            #     raise ValueError(f"Slot id {slot_id} not found in either sparse or dense slots or array slots")
+                ret_datas[feature_name] = emb_indices  # 堆叠为一个tensor
+                ret_datas[f"{feature_name}_mask"] = padding_mask  # 添加mask
 
         label_part = label_part.strip().split(' ')
         # ret_datas['label'] = torch.tensor(float(label_part), dtype=torch.float32)
