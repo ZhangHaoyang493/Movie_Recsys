@@ -40,13 +40,13 @@
     "user_recent_positive_score_10_movie"
   ],
   "embedding_size": {
-    "user_id": 16,
-    "movie_id": 16,
-    "user_gender": 8,
-    "user_age": 8,
-    "movie_year": 8,
-    "user_occupation": 8,
-    "movie_genres": 8
+    "user_id": 4, //16,
+    "movie_id": 4, //16,
+    "user_gender": 2, //8,
+    "user_age": 2, //8,
+    "movie_year": 2, //8,
+    "user_occupation": 2, //8,
+    "movie_genres": 2 //8
   },
   "embedding_table_size": {
     "user_id": 6040,

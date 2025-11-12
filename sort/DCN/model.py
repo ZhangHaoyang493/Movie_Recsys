@@ -10,6 +10,7 @@ import faiss
 import numpy as np
 from math import log2
 import random
+from dcn_arch import DCNNet, DCNv2Net, DCNLayer, DCNv2Layer
 
 from DataReader.data_reader import DataReader
 from tqdm import tqdm
@@ -17,15 +18,19 @@ from model_utils.lr_schedule import CosinDecayLR
 from model_utils.utils import MLP
 from sklearn.metrics import roc_auc_score
 
-class Deep(BaseModel):
+class DCN(BaseModel):
     def __init__(self, config_path, dataloaders={}, hparams={}):
-        super(Deep, self).__init__(config_path)
+        super(DCN, self).__init__(config_path)
         
         self.save_hyperparameters(hparams)
         self.hparams_ = hparams
 
+        # 定义Cross Network部分
+        self.cross_net = DCNNet(input_dim=self.user_input_dim + self.item_input_dim, num_layers=3)
         # 定义Deep模型的网络结构
-        self.score_fc = MLP(dims=[self.user_input_dim + self.item_input_dim, 32, 32, 1])
+        self.mlp_net = MLP(dims=[self.user_input_dim + self.item_input_dim, 32, 32])
+
+        self.score_fc = nn.Linear((self.user_input_dim + self.item_input_dim) + 32, 1)
         
         self.movies_dataloader = dataloaders.get('movies_dataloader', None)
         self.val_dataloader_ = dataloaders.get('val_dataloader', None)
@@ -37,51 +42,57 @@ class Deep(BaseModel):
 
     def forward(self, x):
         inp_feature = self.get_inp_embedding(x)  # 获取输入特征向量
-        scores = F.sigmoid(self.score_fc(inp_feature))  # 通过全连接层计算得分
+        cross_f = self.cross_net(inp_feature)  # 通过Cross Network部分
+        deep_f = self.mlp_net(inp_feature)  # 通过Deep部分
+        concat_f = torch.cat([cross_f, deep_f], dim=1)  # 拼接Cross和Deep的输出
+        scores = torch.sigmoid(self.score_fc(concat_f))  # 通过全连接层计算得分
         return scores  # 返回预测分数
 
 
-    # def get_user_embedding(self, batch):
-    #     user_embeddings = []
-    #     for feature_name in self.user_feature_names:
-    #         emb = self.get_features_embedding(feature_name, batch[feature_name])
-    #         if feature_name in self.sparse_feature_names:
-    #             user_embeddings.append(emb)
-    #         elif feature_name in self.dense_feature_names:
-    #             user_embeddings.append(emb)
-    #         elif feature_name in self.array_feature_names:
-    #             mask = batch.get(f"{feature_name}_mask", None)  # bxarr_lenxdim
-    #             if mask is not None:
-    #                 emb = emb * mask.unsqueeze(-1)  # 应用mask
-    #                 emb = emb.sum(dim=1) / (mask.sum(dim=1, keepdim=True) + 1e-8)  # 避免除以零，mean pooling
-    #             user_embeddings.append(emb)
-    #     user_feature_vector = torch.cat(user_embeddings, dim=1)  # 在特征维度上拼接
-    #     return user_feature_vector
+    def get_user_embedding(self, batch):
+        user_embeddings = []
+        for feature_name in self.user_feature_names:
+            emb = self.get_features_embedding(feature_name, batch[feature_name])
+            if feature_name in self.sparse_feature_names:
+                user_embeddings.append(emb)
+            elif feature_name in self.dense_feature_names:
+                user_embeddings.append(emb)
+            elif feature_name in self.array_feature_names:
+                mask = batch.get(f"{feature_name}_mask", None)  # bxarr_lenxdim
+                if mask is not None:
+                    emb = emb * mask.unsqueeze(-1)  # 应用mask
+                    emb = emb.sum(dim=1) / (mask.sum(dim=1, keepdim=True) + 1e-8)  # 避免除以零，mean pooling
+                user_embeddings.append(emb)
+        user_feature_vector = torch.cat(user_embeddings, dim=1)  # 在特征维度上拼接
+        return user_feature_vector
     
-    # def get_item_embedding(self, batch):
-    #     item_embeddings = []
-    #     for feature_name in self.item_feature_names:
-    #         emb = self.get_features_embedding(feature_name, batch[feature_name])
-    #         if feature_name in self.sparse_feature_names:
-    #             item_embeddings.append(emb)
-    #         elif feature_name in self.dense_feature_names:
-    #             item_embeddings.append(emb)
-    #         elif feature_name in self.array_feature_names:
-    #             mask = batch.get(f"{feature_name}_mask", None)  # bxarr_lenxdim
-    #             if mask is not None:
-    #                 emb = emb * mask.unsqueeze(-1)  # 应用mask
-    #                 emb = emb.sum(dim=1) / (mask.sum(dim=1, keepdim=True) + 1e-8)  # 避免除以零，mean pooling
-    #             item_embeddings.append(emb)
-    #     item_feature_vector = torch.cat(item_embeddings, dim=1)  # 在特征维度上拼接
-    #     return item_feature_vector
+    def get_item_embedding(self, batch):
+        item_embeddings = []
+        for feature_name in self.item_feature_names:
+            emb = self.get_features_embedding(feature_name, batch[feature_name])
+            if feature_name in self.sparse_feature_names:
+                item_embeddings.append(emb)
+            elif feature_name in self.dense_feature_names:
+                item_embeddings.append(emb)
+            elif feature_name in self.array_feature_names:
+                mask = batch.get(f"{feature_name}_mask", None)  # bxarr_lenxdim
+                if mask is not None:
+                    emb = emb * mask.unsqueeze(-1)  # 应用mask
+                    emb = emb.sum(dim=1) / (mask.sum(dim=1, keepdim=True) + 1e-8)  # 避免除以零，mean pooling
+                item_embeddings.append(emb)
+        item_feature_vector = torch.cat(item_embeddings, dim=1)  # 在特征维度上拼接
+        return item_feature_vector
     
     def get_inp_embedding(self, batch):
-        return self.get_embedding_from_set(batch, self.user_feature_names | self.item_feature_names)
+        user_feature_vector = self.get_user_embedding(batch)
+        item_feature_vector = self.get_item_embedding(batch)
+        feature_vector = torch.cat([user_feature_vector, item_feature_vector], dim=1)  # 在特征维度上拼接
+        return feature_vector
     
     def training_step(self, batch, batch_idx):
         scores = self.forward(batch)
         labels = batch['label'][:, 1]  # 获取是否喜欢的标签
-        loss = self.bceLoss(scores, labels)  # 计算二元交叉熵损失
+        loss = self.bceLoss(scores, labels) # 计算二元交叉熵损失
         self.log('train_loss', loss, prog_bar=True)
         return loss
     
@@ -103,11 +114,14 @@ class Deep(BaseModel):
             }
 
         }
-    
+
     @torch.no_grad()
     def inference(self, batch):
         inp_feature = self.get_inp_embedding(batch)  # 获取输入特征向量
-        scores = F.sigmoid(self.score_fc(inp_feature))  # 通过全连接层计算得分
+        cross_f = self.cross_net(inp_feature)  # 通过Cross Network部分
+        deep_f = self.mlp_net(inp_feature)  # 通过Deep部分
+        concat_f = torch.cat([cross_f, deep_f], dim=1)  # 拼接Cross和Deep的输出
+        scores = torch.sigmoid(self.score_fc(concat_f))  # 通过全连接层计算得分
         return scores  # 返回预测分数
 
     # @torch.no_grad()
@@ -120,18 +134,16 @@ class Deep(BaseModel):
     #             if isinstance(batch[key], torch.Tensor):
     #                 batch[key] = batch[key].to(self.device)
     #         inp_feature = self.get_inp_embedding(batch)  # 获取输入特征向量
-    #         scores = F.sigmoid(self.score_fc(inp_feature))  # 通过全连接层计算得分
+    #         cross_f = self.cross_net(inp_feature)  # 通过Cross Network部分
+    #         deep_f = self.mlp_net(inp_feature)  # 通过Deep部分
+    #         concat_f = torch.cat([cross_f, deep_f], dim=1)  # 拼接Cross和Deep的输出
+    #         scores = torch.sigmoid(self.score_fc(concat_f))  # 通过全连接层计算得分
     #         label = batch['label'][:, 1]  # 获取是否喜欢的标签
     #         pred.extend(scores.view(-1).cpu().detach().numpy().tolist())
     #         labels.extend(label.view(-1).cpu().numpy().tolist())
-    #         # 计算AUC
-    #         # auc = roc_auc_score(labels.cpu().numpy(), scores.cpu().detach().numpy())
-    #         # auc_sum += auc
-    #         # idx += 1
     #     avg_auc = roc_auc_score(labels, pred)
     #     self.log('Val_AUC', avg_auc)
     #     print(f"Validation AUC: {avg_auc}")
-
 
     # @torch.no_grad()
     # def eval_ndcg_and_hr(self, k=10):

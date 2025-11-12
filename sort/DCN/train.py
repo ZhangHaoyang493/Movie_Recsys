@@ -1,7 +1,7 @@
 import sys
 sys.path.append('/data2/zhy/Movie_Recsys')
 
-from sort.deep.model import Deep
+from sort.DCN.model import DCN
 from torch.utils.data import DataLoader
 import torch
 import lightning as L
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     #     'min_lr': args.min_lr,
     #     'lr_milestones': args.lr_milestones
     # }
-    model = Deep(config_path, {'movies_dataloader': movies_dataloader, 'val_dataloader': val_dataloader}, hparams=vars(args))
+    model = DCN(config_path, {'movies_dataloader': movies_dataloader, 'val_dataloader': val_dataloader}, hparams=vars(args))
 
     # 定义检查点回调，只保存模型，不做验证
     checkpoint_callback = L.pytorch.callbacks.ModelCheckpoint(

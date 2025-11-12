@@ -5,6 +5,8 @@ import torch.nn.functional as F
 import numpy as np
 import pyjson5 as json
 import os
+from sklearn.metrics import roc_auc_score
+from tqdm import tqdm
 
 class BaseModel(L.LightningModule):
     def __init__(self, config_path: str):
@@ -94,6 +96,18 @@ class BaseModel(L.LightningModule):
 
     def configure_optimizers(self):
         pass
+
+    def get_feature_name_embedding_size(self, feature_name: str):
+        # 获取指定feature name的embedding维度
+        if feature_name in self.share_emb_table_features:
+            emb_feature_name = self.share_emb_table_features[feature_name]
+        else:
+            emb_feature_name = feature_name
+
+        embedding_size = self.embedding_size.get(emb_feature_name, None)
+        if embedding_size is None:
+            raise ValueError(f"Embedding size for feature [{emb_feature_name}] is not specified in the config file")
+        return embedding_size
 
     def build_embedding_tables(self):
         # 构建embedding表,使用ModuleDict管理多个embedding表，这样可以方便地将它们注册为模型的子模块。直接使用字典的话会导致参数无法被正确注册和更新。
@@ -186,6 +200,105 @@ class BaseModel(L.LightningModule):
             return self.get_embedding(emb_feature_name, emb_indices.long())
         else:
             raise ValueError(f"Feature name [{feature_name}] is not defined in sparse_feature_names, dense_feature_names or array_feature_names")
+    
+    # 对数组特征进行处理，可以在子类中重写，默认使用mean pooling
+    def array_feature_process(self, embeddings):
+        for feature_name in self.array_feature_names:
+            if feature_name not in embeddings:
+                continue
+            emb = embeddings[feature_name]  # bxarr_lenxdim
+            mask = embeddings.get(f"{feature_name}_mask", None)  # bxarr_lenxdim
+            if mask is not None:
+                emb = emb * mask.unsqueeze(-1)  # 应用mask
+                emb = emb.sum(dim=1) / (mask.sum(dim=1, keepdim=True) + 1e-8)  # 避免除以零，mean pooling
+                embeddings[feature_name] = emb
+
+
+    # 根据feature name集合中包含的feature name获取对应的embedding字典
+    def get_embedding_from_set(self, batch, feature_name_set):
+        embeddings = {}
+        for feature_name in feature_name_set:
+            emb = self.get_features_embedding(feature_name, batch[feature_name])
+            if feature_name in self.sparse_feature_names:
+                embeddings[feature_name] = emb
+            elif feature_name in self.dense_feature_names:
+                embeddings[feature_name] = emb
+            elif feature_name in self.array_feature_names:
+                mask = batch.get(f"{feature_name}_mask", None)  # bxarr_lenxdim
+                embeddings[feature_name] = emb
+                embeddings[f"{feature_name}_mask"] = mask
+        
+        # 处理数组特征
+        self.array_feature_process(embeddings)
+
+        emb_to_cat = []
+        for feature_name in feature_name_set:
+            emb = embeddings[feature_name]
+            emb_to_cat.append(emb)
+        
+        return torch.cat(emb_to_cat, dim=1)  # 在特征维度上拼接
+    
+    @torch.no_grad()
+    def inference(self, batch):
+        pass
+
+    @torch.no_grad()
+    def eval(self, eval_items=['AUC']):
+        if self.val_dataloader_ is None:
+            print("No validation dataloader provided.")
+            return
+
+        eval_auc = 'AUC' in eval_items
+        eval_gauc = 'GAUC' in eval_items
+
+        user_score_dic = {}
+        pred, truth = [], []
+        print()
+        for batch in tqdm(self.val_dataloader_, desc="Evaluating AUC", ncols=100):
+            for key in batch:
+                if isinstance(batch[key], torch.Tensor):
+                    batch[key] = batch[key].to(self.device)
+            scores = self.inference(batch)
+
+            labels = batch['label'][:, 1]  # 获取是否喜欢的标签
+            scores = scores.view(-1).cpu().detach().numpy().tolist()
+            labels = labels.view(-1).cpu().numpy().tolist()
+            user_ids = batch['user_id'].view(-1).cpu().numpy().tolist()
+
+            pred.extend(scores)
+            truth.extend(labels)
+
+            if eval_gauc:
+                for uid, score, label in zip(user_ids, scores, labels):
+                    if uid not in user_score_dic:
+                        user_score_dic[uid] = {'scores': [], 'labels': [], 'labels_pos_count': 0}
+                    user_score_dic[uid]['scores'].append(score)
+                    user_score_dic[uid]['labels'].append(label)
+                    if label == 1:
+                        user_score_dic[uid]['labels_pos_count'] += 1
+
+        avg_auc = roc_auc_score(truth, pred)
+
+        if eval_gauc:
+            sum_auc = 0.0
+            num = 0
+            for uid in user_score_dic:
+                if user_score_dic[uid]['labels_pos_count'] == 0 or user_score_dic[uid]['labels_pos_count'] == len(user_score_dic[uid]['labels']):
+                    continue  # 全为正样本或全为负样本，跳过
+                sum_auc += roc_auc_score(user_score_dic[uid]['labels'], user_score_dic[uid]['scores'])
+                num += 1
+            print(num)
+            gauc = sum_auc / num if num > 0 else 0.0
+
+        self.log('Val_AUC', avg_auc)
+        if eval_gauc:
+            self.log('Val_GAUC', gauc)
+        if eval_gauc:
+            print(f"AUC: {avg_auc}, GAUC: {gauc}")
+        else:
+            print(f"AUC: {avg_auc}")
+
+
 
 
         
