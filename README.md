@@ -71,7 +71,7 @@ MovieLens数据集1M（https://grouplens.org/datasets/movielens/）
 
 ### 各种排序方式的测试结果
 |文件路径|说明|AUC|Params(K)|Paper Link|
-|-------|-------|------|------|-------|------|
+|-------|-------|------|------|-------|
 |`sort/deep`|多层MLP+ReLU (Baseline)|0.7753|39.8K + 2K|-|
 |`sort/DCN`|加入了Deep Cross Network|0.7768|39.8K+2.224K|[Paper Link](https://arxiv.org/pdf/1708.05123)|
 
