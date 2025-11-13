@@ -18,6 +18,22 @@ from model_utils.lr_schedule import CosinDecayLR
 from model_utils.utils import MLP
 from sklearn.metrics import roc_auc_score
 
+class DCNModel(nn.Module):
+    def __init__(self, input_dim, cross_num_layers=3, deep_hidden_dims=[32, 32]):
+        super(DCNModel, self).__init__()
+        # Cross Network部分
+        self.cross_net = DCNNet(input_dim=input_dim, num_layers=cross_num_layers)
+        dims = [input_dim] + deep_hidden_dims
+        # Deep部分
+        self.deep_net = MLP(dims=dims)
+        self.score_fc = nn.Linear(input_dim + deep_hidden_dims[-1], 1)
+
+    def forward(self, x):
+        cross_f = self.cross_net(x)
+        deep_f = self.deep_net(x)
+        concat_f = torch.cat([cross_f, deep_f], dim=1)
+        return F.sigmoid(self.score_fc(concat_f))
+
 class DCN(BaseModel):
     def __init__(self, config_path, dataloaders={}, hparams={}):
         super(DCN, self).__init__(config_path)
@@ -25,12 +41,7 @@ class DCN(BaseModel):
         self.save_hyperparameters(hparams)
         self.hparams_ = hparams
 
-        # 定义Cross Network部分
-        self.cross_net = DCNNet(input_dim=self.user_input_dim + self.item_input_dim, num_layers=3)
-        # 定义Deep模型的网络结构
-        self.mlp_net = MLP(dims=[self.user_input_dim + self.item_input_dim, 32, 32])
-
-        self.score_fc = nn.Linear((self.user_input_dim + self.item_input_dim) + 32, 1)
+        self.score_fc = DCNModel(input_dim=self.user_input_dim + self.item_input_dim, cross_num_layers=4, deep_hidden_dims=[32, 32])
         
         self.movies_dataloader = dataloaders.get('movies_dataloader', None)
         self.val_dataloader_ = dataloaders.get('val_dataloader', None)
@@ -42,52 +53,12 @@ class DCN(BaseModel):
 
     def forward(self, x):
         inp_feature = self.get_inp_embedding(x)  # 获取输入特征向量
-        cross_f = self.cross_net(inp_feature)  # 通过Cross Network部分
-        deep_f = self.mlp_net(inp_feature)  # 通过Deep部分
-        concat_f = torch.cat([cross_f, deep_f], dim=1)  # 拼接Cross和Deep的输出
-        scores = torch.sigmoid(self.score_fc(concat_f))  # 通过全连接层计算得分
-        return scores  # 返回预测分数
-
-
-    def get_user_embedding(self, batch):
-        user_embeddings = []
-        for feature_name in self.user_feature_names:
-            emb = self.get_features_embedding(feature_name, batch[feature_name])
-            if feature_name in self.sparse_feature_names:
-                user_embeddings.append(emb)
-            elif feature_name in self.dense_feature_names:
-                user_embeddings.append(emb)
-            elif feature_name in self.array_feature_names:
-                mask = batch.get(f"{feature_name}_mask", None)  # bxarr_lenxdim
-                if mask is not None:
-                    emb = emb * mask.unsqueeze(-1)  # 应用mask
-                    emb = emb.sum(dim=1) / (mask.sum(dim=1, keepdim=True) + 1e-8)  # 避免除以零，mean pooling
-                user_embeddings.append(emb)
-        user_feature_vector = torch.cat(user_embeddings, dim=1)  # 在特征维度上拼接
-        return user_feature_vector
-    
-    def get_item_embedding(self, batch):
-        item_embeddings = []
-        for feature_name in self.item_feature_names:
-            emb = self.get_features_embedding(feature_name, batch[feature_name])
-            if feature_name in self.sparse_feature_names:
-                item_embeddings.append(emb)
-            elif feature_name in self.dense_feature_names:
-                item_embeddings.append(emb)
-            elif feature_name in self.array_feature_names:
-                mask = batch.get(f"{feature_name}_mask", None)  # bxarr_lenxdim
-                if mask is not None:
-                    emb = emb * mask.unsqueeze(-1)  # 应用mask
-                    emb = emb.sum(dim=1) / (mask.sum(dim=1, keepdim=True) + 1e-8)  # 避免除以零，mean pooling
-                item_embeddings.append(emb)
-        item_feature_vector = torch.cat(item_embeddings, dim=1)  # 在特征维度上拼接
-        return item_feature_vector
+        
+        return self.score_fc(inp_feature)  # 返回预测分数
     
     def get_inp_embedding(self, batch):
-        user_feature_vector = self.get_user_embedding(batch)
-        item_feature_vector = self.get_item_embedding(batch)
-        feature_vector = torch.cat([user_feature_vector, item_feature_vector], dim=1)  # 在特征维度上拼接
-        return feature_vector
+        features, _, _ = self.get_embedding_from_set(batch, self.user_feature_names | self.item_feature_names)
+        return features
     
     def training_step(self, batch, batch_idx):
         scores = self.forward(batch)
@@ -118,11 +89,7 @@ class DCN(BaseModel):
     @torch.no_grad()
     def inference(self, batch):
         inp_feature = self.get_inp_embedding(batch)  # 获取输入特征向量
-        cross_f = self.cross_net(inp_feature)  # 通过Cross Network部分
-        deep_f = self.mlp_net(inp_feature)  # 通过Deep部分
-        concat_f = torch.cat([cross_f, deep_f], dim=1)  # 拼接Cross和Deep的输出
-        scores = torch.sigmoid(self.score_fc(concat_f))  # 通过全连接层计算得分
-        return scores  # 返回预测分数
+        return self.score_fc(inp_feature)  # 返回预测分数
 
     # @torch.no_grad()
     # def eval_auc(self):

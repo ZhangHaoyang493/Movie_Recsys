@@ -12,22 +12,22 @@ class BaseModel(L.LightningModule):
     def __init__(self, config_path: str):
         super(BaseModel, self).__init__()
         with open(config_path, 'r') as f:
-            config = json.load(f)
+            self.config = json.load(f)
 
         # 从json文件中获取各个配置参数
-        self.sparse_feature_names = config.get('sparse_feature_names', None)
-        self.dense_feature_names = config.get('dense_feature_names', None)
-        self.array_feature_names = config.get('array_feature_names', None)
-        self.embedding_size = config.get('embedding_size', None)
-        self.embedding_table_size = config.get('embedding_table_size', None)
-        self.share_emb_table_features = config.get('share_emb_table_features', {})
-        self.array_max_length = config.get('array_max_length', {})
-        self.item_feature_names = config.get('item_feature_names', [])
-        self.user_feature_names = config.get('user_feature_names', [])
-        self.user_history_path = config.get('user_history_path', None)
-        self.dense_feature_dim = config.get('dense_feature_dim', 0)
-        self.emb_idx_2_val_path = config.get('embedding_idx_2_original_val_dict_path', None)
-        self.val_2_emb_idx_path = config.get('original_val_2_embedding_idx_dict_path', None)
+        self.sparse_feature_names = self.config.get('sparse_feature_names', None)
+        self.dense_feature_names = self.config.get('dense_feature_names', None)
+        self.array_feature_names = self.config.get('array_feature_names', None)
+        self.embedding_size = self.config.get('embedding_size', None)
+        self.embedding_table_size = self.config.get('embedding_table_size', None)
+        self.share_emb_table_features = self.config.get('share_emb_table_features', {})
+        self.array_max_length = self.config.get('array_max_length', {})
+        self.item_feature_names = self.config.get('item_feature_names', [])
+        self.user_feature_names = self.config.get('user_feature_names', [])
+        self.user_history_path = self.config.get('user_history_path', None)
+        self.dense_feature_dim = self.config.get('dense_feature_dim', 0)
+        self.emb_idx_2_val_path = self.config.get('embedding_idx_2_original_val_dict_path', None)
+        self.val_2_emb_idx_path = self.config.get('original_val_2_embedding_idx_dict_path', None)
 
         self.sparse_feature_names = set(self.sparse_feature_names) if self.sparse_feature_names else set()
         self.dense_feature_names = set(self.dense_feature_names) if self.dense_feature_names else set()
@@ -232,11 +232,15 @@ class BaseModel(L.LightningModule):
         self.array_feature_process(embeddings)
 
         emb_to_cat = []
+        feature_dims = []
+        feature_names = []
         for feature_name in feature_name_set:
             emb = embeddings[feature_name]
             emb_to_cat.append(emb)
+            feature_dims.append(emb.shape[1])
+            feature_names.append(feature_name)
         
-        return torch.cat(emb_to_cat, dim=1)  # 在特征维度上拼接
+        return torch.cat(emb_to_cat, dim=1), feature_dims, feature_names  # 在特征维度上拼接
     
     @torch.no_grad()
     def inference(self, batch):
