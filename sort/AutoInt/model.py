@@ -5,47 +5,34 @@ from BaseModel.base_model import BaseModel
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.init as init
-import faiss
-import numpy as np
-from math import log2
-import random
 
-from DataReader.data_reader import DataReader
-from tqdm import tqdm
 from model_utils.lr_schedule import CosinDecayLR
-from model_utils.utils import MLP
-from sklearn.metrics import roc_auc_score
+from model_utils.utils import MLP, TransformerBlock
 
-class WideDeepModel(nn.Module):
+class AutoIntModel(nn.Module):
     def __init__(self, input_dim, hidden_dims=[32, 32, 1]):
-        super(WideDeepModel, self).__init__()
+        super(AutoIntModel, self).__init__()
         dims = [input_dim] + hidden_dims
         
-        self.wide_network = torch.sum
         self.deep_network = MLP(dims=dims)
-        self.bias = nn.Parameter(torch.zeros(1))
+        self.transformer_block = nn.Sequential(*[TransformerBlock(embed_dim=input_dim, num_heads=2, ff_dim=32) for _ in range(1)])
 
     
-    def forward(self, wide_x, deep_x):
-        wide_out = self.wide_network(wide_x, dim=1, keepdim=True) + self.bias  # 线性部分
-        deep_out = self.deep_network(deep_x)
-        return F.sigmoid(wide_out + deep_out)
+    def forward(self, x):
+        x = self.transformer_block(x.unsqueeze(1)).squeeze(1)  # B x input_dim
+        deep_out = self.deep_network(x)
+        return torch.sigmoid(deep_out)
     
 
-class WideDeep(BaseModel):
+class AutoInt(BaseModel):
     def __init__(self, config_path, dataloaders={}, hparams={}):
-        super(WideDeep, self).__init__(config_path)
+        super(AutoInt, self).__init__(config_path)
         
         self.save_hyperparameters(hparams)
         self.hparams_ = hparams
 
-        wide_and_deep_config = self.config['wide_and_deep_cfg']
-        self.wide_feature_names = set(wide_and_deep_config['wide_feature_names'])
-
-
         # 定义Deep模型的网络结构，包括输入维度和隐藏层维度，这里减去wide特征的维度
-        self.score_fc = WideDeepModel(input_dim=self.user_input_dim + self.item_input_dim - len(self.wide_feature_names), hidden_dims=[32, 32, 1])
+        self.score_fc = AutoIntModel(input_dim=self.user_input_dim + self.item_input_dim, hidden_dims=[32, 32, 1])
         
         self.movies_dataloader = dataloaders.get('movies_dataloader', None)
         self.val_dataloader_ = dataloaders.get('val_dataloader', None)
@@ -58,32 +45,18 @@ class WideDeep(BaseModel):
 
 
     def forward(self, x):
-        wide_x, deep_x = self.get_inp_embedding(x)  # 获取输入特征向量
-        return self.score_fc(wide_x, deep_x)  # 返回预测分数
+        features = self.get_inp_embedding(x)  # 获取输入特征向量
+        return self.score_fc(features)  # 返回预测分数
 
     
     def get_inp_embedding(self, batch):
-        features, dims, fnames = self.get_embedding_from_set(batch, self.user_feature_names | self.item_feature_names)
-        wide_x = []
-        deep_x = []
-        start_idx = 0
-        for dim, fname in zip(dims, fnames):
-            end_idx = start_idx + dim
-            if fname in self.wide_feature_names:
-                wide_x.append(features[:, start_idx:start_idx+1])  # Bx1
-                deep_x.append(features[:, start_idx+1:end_idx])  # Bxdim
-            else:
-                deep_x.append(features[:, start_idx:end_idx])  # Bxdim
-            start_idx = end_idx
-        wide_x = torch.cat(wide_x, dim=1)
-        deep_x = torch.cat(deep_x, dim=1)
-
-        return wide_x, deep_x
+        features, _, _ = self.get_embedding_from_set(batch, self.user_feature_names | self.item_feature_names)
+        return features
     
     def training_step(self, batch, batch_idx):
         scores = self.forward(batch)
         labels = batch['label'][:, 1]  # 获取是否喜欢的标签
-        loss = self.bceLoss(scores, labels)  # 计算二元交叉熵损失
+        loss = self.bceLoss(scores, labels)# + 1e-6 * torch.mean(torch.abs(wide_x))  # 计算二元交叉熵损失
         self.log('train_loss', loss, prog_bar=True)
         return loss
     
@@ -108,8 +81,8 @@ class WideDeep(BaseModel):
     
     @torch.no_grad()
     def inference(self, batch):
-        wide_x, deep_x = self.get_inp_embedding(batch)  # 获取输入特征向量
-        return self.score_fc(wide_x, deep_x)  # 返回预测分数
+        feature = self.get_inp_embedding(batch)  # 获取输入特征向量
+        return self.score_fc(feature)  # 返回预测分数
 
 
     @torch.no_grad()

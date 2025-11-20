@@ -1,17 +1,12 @@
 {
   "ratings_path": [
-    "/data2/zhy/Movie_Recsys/MovieLens_1M_data/train_ratings.dat",
-    "/data2/zhy/Movie_Recsys/MovieLens_1M_data/test_ratings.dat"
+    "/data2/zhy/Movie_Recsys/MovieLens_1M_data/sort_train_val_data/train_ratings_for_sort.dat",
+    "/data2/zhy/Movie_Recsys/MovieLens_1M_data/sort_train_val_data/val_ratings_for_sort.dat"
   ],
-  // "test_ratings_path": "/data2/zhy/Movie_Recsys/MovieLens_1M_data/test_ratings.dat",
   "movies_path": "/data2/zhy/Movie_Recsys/MovieLens_1M_data/movies.dat",
   "users_path": "/data2/zhy/Movie_Recsys/MovieLens_1M_data/users.dat",
   "feature_extractor_path": "/data2/zhy/Movie_Recsys/FeaturesGenerator/feature_extractor.py",
-  "out_basedir": "/data2/zhy/Movie_Recsys/FeatureFiles",
-  "data_path": "/data2/zhy/Movie_Recsys/FeaturesGenerator/train_data.txt",
-  "user_history_path": "/data2/zhy/Movie_Recsys/MovieLens_1M_data/user_history.json",
-  "embedding_idx_2_original_val_dict_path": "/data2/zhy/Movie_Recsys/FeatureFiles/embedding_idx_2_original_val_dict.json",
-  "original_val_2_embedding_idx_dict_path": "/data2/zhy/Movie_Recsys/FeatureFiles/original_val_2_embedding_idx_dict.json",
+  "out_basedir": "/data2/zhy/Movie_Recsys/FeatureFilesForSort",
   "feature_names": [
     "user_id",
     "movie_id",
@@ -45,13 +40,13 @@
     "user_recent_positive_score_10_movie"
   ],
   "embedding_size": {
-    "user_id": 16,
-    "movie_id": 16,
-    "user_gender": 8,
-    "user_age": 8,
-    "movie_year": 8,
-    "user_occupation": 8,
-    "movie_genres": 8
+    "user_id": 7, //16,
+    "movie_id": 7, //16,
+    "user_gender": 5, //8,
+    "user_age": 5, //8,
+    "movie_year": 5, //8,
+    "user_occupation": 5, //8,
+    "movie_genres": 5 //8
   },
   "embedding_table_size": {
     "user_id": 6040,
@@ -81,5 +76,20 @@
     "user_recent_positive_score_10_movie",
     "user_history_favourite_genre"
   ],
-  "dense_feature_dim": 1  // 考虑到对于数值特征的处理方式很多，比如直接输入、归一化、使用YoutubeDNN的数值处理方式等，这些方式对于一个dense特征来说，最终的维度可能不止1维，因此这里需要指定数值特征的最终维度
+  "dense_feature_dim": 1,  // 考虑到对于数值特征的处理方式很多，比如直接输入、归一化、使用YoutubeDNN的数值处理方式等，这些方式对于一个dense特征来说，最终的维度可能不止1维，因此这里需要指定数值特征的最终维度
+  "deepfm_cfg": {
+    "fm_feature_names": [
+      "movie_id",
+      "movie_year",
+      "movie_genres",
+      "user_id",
+      "user_gender",
+      "user_age",
+      "user_recent_10_movies",
+      "user_occupation",
+      "user_recent_positive_score_10_movie",
+      "user_history_favourite_genre"
+    ],
+    "fm_dim": 2 // fm的隐向量的维度
+  }
 }

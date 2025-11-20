@@ -5,47 +5,47 @@ from BaseModel.base_model import BaseModel
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.init as init
-import faiss
-import numpy as np
-from math import log2
-import random
 
-from DataReader.data_reader import DataReader
-from tqdm import tqdm
 from model_utils.lr_schedule import CosinDecayLR
 from model_utils.utils import MLP
-from sklearn.metrics import roc_auc_score
 
-class WideDeepModel(nn.Module):
+class DeepFMModel(nn.Module):
     def __init__(self, input_dim, hidden_dims=[32, 32, 1]):
-        super(WideDeepModel, self).__init__()
+        super(DeepFMModel, self).__init__()
         dims = [input_dim] + hidden_dims
         
-        self.wide_network = torch.sum
         self.deep_network = MLP(dims=dims)
         self.bias = nn.Parameter(torch.zeros(1))
 
     
-    def forward(self, wide_x, deep_x):
-        wide_out = self.wide_network(wide_x, dim=1, keepdim=True) + self.bias  # 线性部分
+    def forward(self, fm_w, fm_v, deep_x):
+        # FM一阶
+        fm_first_order = torch.sum(fm_w, dim=1, keepdim=True) + self.bias # Bx1
+        # FM二阶
+        fm_second_order = 0.5 * torch.sum(
+            torch.pow(torch.sum(fm_v, dim=1), 2) - torch.sum(torch.pow(fm_v, 2), dim=1),
+            dim=1,
+            keepdim=True
+        )  # Bx1
+
         deep_out = self.deep_network(deep_x)
-        return F.sigmoid(wide_out + deep_out)
+        return F.sigmoid(fm_first_order + fm_second_order + deep_out)
     
 
-class WideDeep(BaseModel):
+class DeepFM(BaseModel):
     def __init__(self, config_path, dataloaders={}, hparams={}):
-        super(WideDeep, self).__init__(config_path)
+        super(DeepFM, self).__init__(config_path)
         
         self.save_hyperparameters(hparams)
         self.hparams_ = hparams
 
-        wide_and_deep_config = self.config['wide_and_deep_cfg']
-        self.wide_feature_names = set(wide_and_deep_config['wide_feature_names'])
+        deepfm_config = self.config['deepfm_cfg']
+        self.fm_feature_names = set(deepfm_config['fm_feature_names'])
+        self.fm_dim = deepfm_config['fm_dim']
 
-
+        fm_sum_dim = len(self.fm_feature_names) * (1 + self.fm_dim)  # fm一阶和二阶的总维度
         # 定义Deep模型的网络结构，包括输入维度和隐藏层维度，这里减去wide特征的维度
-        self.score_fc = WideDeepModel(input_dim=self.user_input_dim + self.item_input_dim - len(self.wide_feature_names), hidden_dims=[32, 32, 1])
+        self.score_fc = DeepFMModel(input_dim=self.user_input_dim + self.item_input_dim - fm_sum_dim, hidden_dims=[32, 32, 1])
         
         self.movies_dataloader = dataloaders.get('movies_dataloader', None)
         self.val_dataloader_ = dataloaders.get('val_dataloader', None)
@@ -58,32 +58,35 @@ class WideDeep(BaseModel):
 
 
     def forward(self, x):
-        wide_x, deep_x = self.get_inp_embedding(x)  # 获取输入特征向量
-        return self.score_fc(wide_x, deep_x)  # 返回预测分数
+        fm_first_order_x, fm_second_order_x, deep_x = self.get_inp_embedding(x)  # 获取输入特征向量
+        return self.score_fc(fm_first_order_x, fm_second_order_x, deep_x)  # 返回预测分数
 
     
     def get_inp_embedding(self, batch):
         features, dims, fnames = self.get_embedding_from_set(batch, self.user_feature_names | self.item_feature_names)
-        wide_x = []
+        fm_first_order_x = []
+        fm_second_order_x = []
         deep_x = []
         start_idx = 0
         for dim, fname in zip(dims, fnames):
             end_idx = start_idx + dim
-            if fname in self.wide_feature_names:
-                wide_x.append(features[:, start_idx:start_idx+1])  # Bx1
-                deep_x.append(features[:, start_idx+1:end_idx])  # Bxdim
+            if fname in self.fm_feature_names:
+                fm_first_order_x.append(features[:, start_idx:start_idx+1])  # Bx1
+                fm_second_order_x.append(features[:, start_idx+1:start_idx+1+self.fm_dim])  # Bxdim
+                deep_x.append(features[:, start_idx+1+self.fm_dim:end_idx])  # Bx(剩余维度)
             else:
                 deep_x.append(features[:, start_idx:end_idx])  # Bxdim
             start_idx = end_idx
-        wide_x = torch.cat(wide_x, dim=1)
+        fm_first_order_x = torch.cat(fm_first_order_x, dim=1)
+        fm_second_order_x = torch.stack(fm_second_order_x, dim=1)
         deep_x = torch.cat(deep_x, dim=1)
 
-        return wide_x, deep_x
+        return fm_first_order_x, fm_second_order_x, deep_x
     
     def training_step(self, batch, batch_idx):
         scores = self.forward(batch)
         labels = batch['label'][:, 1]  # 获取是否喜欢的标签
-        loss = self.bceLoss(scores, labels)  # 计算二元交叉熵损失
+        loss = self.bceLoss(scores, labels)# + 1e-6 * torch.mean(torch.abs(wide_x))  # 计算二元交叉熵损失
         self.log('train_loss', loss, prog_bar=True)
         return loss
     
@@ -108,8 +111,8 @@ class WideDeep(BaseModel):
     
     @torch.no_grad()
     def inference(self, batch):
-        wide_x, deep_x = self.get_inp_embedding(batch)  # 获取输入特征向量
-        return self.score_fc(wide_x, deep_x)  # 返回预测分数
+        fm_first_order_x, fm_second_order_x, deep_x = self.get_inp_embedding(batch)  # 获取输入特征向量
+        return self.score_fc(fm_first_order_x, fm_second_order_x, deep_x)  # 返回预测分数
 
 
     @torch.no_grad()
